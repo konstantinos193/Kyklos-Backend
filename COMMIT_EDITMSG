@@ -1,0 +1,14 @@
+Initial commit: ΚΥΚΛΟΣ Backend API
+
+- Complete Express.js backend setup
+- Newsletter subscription system with email service
+- Blog management system
+- MongoDB integration with Mongoose
+- Redis caching system
+- Rate limiting and security middleware
+- JWT authentication
+- File upload with Multer
+- Email service with Nodemailer
+- CORS and security headers
+- Environment configuration
+- Ready for Render deployment
