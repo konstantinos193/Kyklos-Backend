@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const Blog = require('../models/Blog');
-const { cache } = require('../config/redis');
+const { cache } = require('../config/upstash-redis');
 
 // Cache duration constants
 const CACHE_DURATION = {
