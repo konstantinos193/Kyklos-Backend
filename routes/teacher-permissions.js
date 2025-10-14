@@ -7,7 +7,7 @@ const auth = require('../middleware/auth');
 const router = express.Router();
 
 // Apply authentication middleware to all routes
-router.use(auth);
+router.use(auth.verifyToken);
 
 /**
  * @route GET /api/teacher-permissions
@@ -32,7 +32,7 @@ router.get('/', [
     }
 
     // Check if user is admin
-    if (req.user.type !== 'admin') {
+    if (req.admin.role !== 'admin') {
       return res.status(403).json({
         success: false,
         message: 'Unauthorized access'
@@ -115,7 +115,7 @@ router.post('/', [
     }
 
     // Check if user is admin
-    if (req.user.type !== 'admin') {
+    if (req.admin.role !== 'admin') {
       return res.status(403).json({
         success: false,
         message: 'Unauthorized access'
@@ -163,13 +163,13 @@ router.post('/', [
     }
 
     // Create permission
-    const permission = new TeacherPermission({
+    const permission = new TeacherPermissionModel({
       teacher: teacherId,
       teacherName: teacher.name,
       examMaterial: examMaterialId,
       permissionType,
-      grantedBy: req.user.id,
-      grantedByName: req.user.name || 'Admin',
+      grantedBy: req.admin.id,
+      grantedByName: req.admin.name || 'Admin',
       expiresAt: expiresAt ? new Date(expiresAt) : null,
       notes
     });
@@ -217,7 +217,7 @@ router.put('/:id', [
     }
 
     // Check if user is admin
-    if (req.user.type !== 'admin') {
+    if (req.admin.role !== 'admin') {
       return res.status(403).json({
         success: false,
         message: 'Unauthorized access'
@@ -272,7 +272,7 @@ router.put('/:id', [
 router.delete('/:id', async (req, res) => {
   try {
     // Check if user is admin
-    if (req.user.type !== 'admin') {
+    if (req.admin.role !== 'admin') {
       return res.status(403).json({
         success: false,
         message: 'Unauthorized access'
@@ -373,7 +373,7 @@ router.get('/teacher/:teacherId', [
     }
 
     // Check if user is admin
-    if (req.user.type !== 'admin') {
+    if (req.admin.role !== 'admin') {
       return res.status(403).json({
         success: false,
         message: 'Unauthorized access'
@@ -411,7 +411,7 @@ router.get('/teacher/:teacherId', [
 router.get('/exam-material/:examMaterialId', async (req, res) => {
   try {
     // Check if user is admin
-    if (req.user.type !== 'admin') {
+    if (req.admin.role !== 'admin') {
       return res.status(403).json({
         success: false,
         message: 'Unauthorized access'
