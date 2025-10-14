@@ -4,6 +4,67 @@ const { generateToken } = require('../middleware/auth');
 const AdminModel = require('../models/AdminModel');
 const router = express.Router();
 
+// POST /api/admin/auth/create - Create new admin (for seeding)
+router.post('/create', [
+  body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+  body('name').notEmpty().trim().withMessage('Name is required'),
+  body('role').optional().isIn(['super_admin', 'admin', 'moderator']).withMessage('Invalid role')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation errors',
+        errors: errors.array()
+      });
+    }
+
+    const { email, password, name, role = 'admin', isActive = true, permissions } = req.body;
+
+    // Check if admin already exists
+    const existingAdmin = await AdminModel.findByEmail(email);
+    if (existingAdmin) {
+      return res.status(409).json({
+        success: false,
+        message: 'Admin with this email already exists'
+      });
+    }
+
+    // Create admin user
+    const adminData = {
+      email,
+      password,
+      name,
+      role,
+      isActive,
+      permissions: permissions || {
+        students: { create: true, read: true, update: true, delete: true },
+        blog: { create: true, read: true, update: true, delete: true },
+        newsletter: { create: true, read: true, update: true, delete: true },
+        settings: { read: true, update: true }
+      }
+    };
+
+    const admin = await AdminModel.create(adminData);
+
+    res.status(201).json({
+      success: true,
+      message: 'Admin created successfully',
+      data: {
+        admin: AdminModel.getPublicProfile(admin)
+      }
+    });
+  } catch (error) {
+    console.error('Admin creation error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
 // POST /api/admin/auth/login - Admin login
 router.post('/login', [
   body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),

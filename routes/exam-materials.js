@@ -3,9 +3,9 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs').promises;
 const { body, validationResult, query } = require('express-validator');
-const ExamMaterial = require('../models/ExamMaterial');
-const Student = require('../models/Student');
-const Admin = require('../models/Admin');
+const ExamMaterialModel = require('../models/ExamMaterialModel');
+const StudentModel = require('../models/StudentModel');
+const AdminModel = require('../models/AdminModel');
 const auth = require('../middleware/auth');
 const router = express.Router();
 
@@ -93,7 +93,7 @@ router.get('/', [
       });
     }
 
-    const student = await Student.findById(decoded.studentId);
+    const student = await StudentModel.findById(decoded.studentId);
     if (!student || student.status !== 'active') {
       return res.status(401).json({
         success: false,
@@ -114,7 +114,7 @@ router.get('/', [
     const skip = (page - 1) * limit;
 
     // Get materials
-    const materials = await ExamMaterial.find({
+    const materials = await ExamMaterialModel.find({
       isActive: true,
       isLocked: false,
       ...filters
@@ -130,7 +130,7 @@ router.get('/', [
     );
 
     // Get total count for pagination
-    const totalCount = await ExamMaterial.countDocuments({
+    const totalCount = await ExamMaterialModel.countDocuments({
       isActive: true,
       isLocked: false,
       ...filters
@@ -182,7 +182,7 @@ router.get('/:id', async (req, res) => {
       });
     }
 
-    const student = await Student.findById(decoded.studentId);
+    const student = await StudentModel.findById(decoded.studentId);
     if (!student || student.status !== 'active') {
       return res.status(401).json({
         success: false,
@@ -190,7 +190,7 @@ router.get('/:id', async (req, res) => {
       });
     }
 
-    const material = await ExamMaterial.findById(req.params.id);
+    const material = await ExamMaterialModel.findById(req.params.id);
     if (!material) {
       return res.status(404).json({
         success: false,
@@ -246,7 +246,7 @@ router.get('/download/:id', async (req, res) => {
       });
     }
 
-    const student = await Student.findById(decoded.studentId);
+    const student = await StudentModel.findById(decoded.studentId);
     if (!student || student.status !== 'active') {
       return res.status(401).json({
         success: false,
@@ -254,7 +254,7 @@ router.get('/download/:id', async (req, res) => {
       });
     }
 
-    const material = await ExamMaterial.findById(req.params.id);
+    const material = await ExamMaterialModel.findById(req.params.id);
     if (!material) {
       return res.status(404).json({
         success: false,
@@ -444,7 +444,7 @@ router.put('/:id', auth, [
       });
     }
 
-    const material = await ExamMaterial.findById(req.params.id);
+    const material = await ExamMaterialModel.findById(req.params.id);
     if (!material) {
       return res.status(404).json({
         success: false,
@@ -473,7 +473,7 @@ router.put('/:id', auth, [
       updateFields.metadata = { ...material.metadata, ...req.body.metadata };
     }
 
-    const updatedMaterial = await ExamMaterial.findByIdAndUpdate(
+    const updatedMaterial = await ExamMaterialModel.findByIdAndUpdate(
       req.params.id,
       updateFields,
       { new: true, runValidators: true }
@@ -510,7 +510,7 @@ router.delete('/:id', auth, async (req, res) => {
       });
     }
 
-    const material = await ExamMaterial.findById(req.params.id);
+    const material = await ExamMaterialModel.findById(req.params.id);
     if (!material) {
       return res.status(404).json({
         success: false,
@@ -526,7 +526,7 @@ router.delete('/:id', auth, async (req, res) => {
     }
 
     // Delete from database
-    await ExamMaterial.findByIdAndDelete(req.params.id);
+    await ExamMaterialModel.findByIdAndDelete(req.params.id);
 
     res.json({
       success: true,
@@ -590,13 +590,13 @@ router.get('/admin/list', auth, [
     const limit = parseInt(req.query.limit) || 20;
     const skip = (page - 1) * limit;
 
-    const materials = await ExamMaterial.find(filters)
+    const materials = await ExamMaterialModel.find(filters)
       .populate('uploadedBy', 'name email')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
 
-    const totalCount = await ExamMaterial.countDocuments(filters);
+    const totalCount = await ExamMaterialModel.countDocuments(filters);
 
     res.json({
       success: true,

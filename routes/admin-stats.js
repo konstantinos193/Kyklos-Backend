@@ -2,9 +2,9 @@ const express = require('express');
 const router = express.Router();
 const { verifyToken, isAdmin } = require('../middleware/auth');
 
-const Blog = require('../models/Blog');
-const Student = require('../models/Student');
-const Newsletter = require('../models/Newsletter');
+const BlogModel = require('../models/BlogModel');
+const StudentModel = require('../models/StudentModel');
+const NewsletterModel = require('../models/NewsletterModel');
 
 // Apply authentication middleware to all routes
 router.use(verifyToken);
@@ -14,10 +14,10 @@ router.use(isAdmin);
 router.get('/', async (req, res) => {
   try {
     const [totalUsers, totalBlogs, totalSubscribers, viewsAgg] = await Promise.all([
-      Student.countDocuments({}),
-      Blog.countDocuments({ status: 'published' }),
-      Newsletter.countDocuments({ isActive: true }),
-      Blog.aggregate([
+      StudentModel.countDocuments({}),
+      BlogModel.countDocuments({ status: 'published' }),
+      NewsletterModel.countDocuments({ isActive: true }),
+      BlogModel.aggregate([
         { $group: { _id: null, totalViews: { $sum: { $ifNull: ['$views', 0] } } } }
       ])
     ]);

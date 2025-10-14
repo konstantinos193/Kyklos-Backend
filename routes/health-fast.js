@@ -1,5 +1,5 @@
 const express = require('express');
-const mongoose = require('mongoose');
+const { getClient } = require('../config/database');
 const router = express.Router();
 
 /**
@@ -12,7 +12,8 @@ router.get('/fast', async (req, res) => {
   
   try {
     // Quick database check (no ping)
-    const dbConnected = mongoose.connection.readyState === 1;
+    const client = getClient();
+    const dbConnected = client && client.topology && client.topology.isConnected();
     
     // Basic system info
     const payload = {

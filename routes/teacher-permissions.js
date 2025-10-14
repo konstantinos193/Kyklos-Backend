@@ -1,8 +1,8 @@
 const express = require('express');
 const { body, validationResult, query } = require('express-validator');
-const TeacherPermission = require('../models/TeacherPermission');
-const ExamMaterial = require('../models/ExamMaterial');
-const Admin = require('../models/Admin');
+const TeacherPermissionModel = require('../models/TeacherPermissionModel');
+const ExamMaterialModel = require('../models/ExamMaterialModel');
+const AdminModel = require('../models/AdminModel');
 const auth = require('../middleware/auth');
 const router = express.Router();
 
@@ -57,7 +57,7 @@ router.get('/', [
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     // Get permissions
-    const permissions = await TeacherPermission.find(filter)
+    const permissions = await TeacherPermissionModel.find(filter)
       .populate('teacher', 'name email')
       .populate('examMaterial', 'title subject grade year type')
       .populate('grantedBy', 'name email')
@@ -66,7 +66,7 @@ router.get('/', [
       .limit(parseInt(limit));
 
     // Get total count
-    const total = await TeacherPermission.countDocuments(filter);
+    const total = await TeacherPermissionModel.countDocuments(filter);
 
     res.json({
       success: true,
@@ -131,7 +131,7 @@ router.post('/', [
     } = req.body;
 
     // Check if teacher exists
-    const teacher = await Admin.findById(teacherId);
+    const teacher = await AdminModel.findById(teacherId);
     if (!teacher) {
       return res.status(404).json({
         success: false,
@@ -140,7 +140,7 @@ router.post('/', [
     }
 
     // Check if exam material exists
-    const examMaterial = await ExamMaterial.findById(examMaterialId);
+    const examMaterial = await ExamMaterialModel.findById(examMaterialId);
     if (!examMaterial) {
       return res.status(404).json({
         success: false,
@@ -149,7 +149,7 @@ router.post('/', [
     }
 
     // Check if permission already exists
-    const existingPermission = await TeacherPermission.findOne({
+    const existingPermission = await TeacherPermissionModel.findOne({
       teacher: teacherId,
       examMaterial: examMaterialId,
       isActive: true
@@ -224,7 +224,7 @@ router.put('/:id', [
       });
     }
 
-    const permission = await TeacherPermission.findById(req.params.id);
+    const permission = await TeacherPermissionModel.findById(req.params.id);
     if (!permission) {
       return res.status(404).json({
         success: false,
@@ -239,7 +239,7 @@ router.put('/:id', [
     if (req.body.isActive !== undefined) updateFields.isActive = req.body.isActive;
     if (req.body.notes !== undefined) updateFields.notes = req.body.notes;
 
-    const updatedPermission = await TeacherPermission.findByIdAndUpdate(
+    const updatedPermission = await TeacherPermissionModel.findByIdAndUpdate(
       req.params.id,
       updateFields,
       { new: true, runValidators: true }
@@ -279,7 +279,7 @@ router.delete('/:id', async (req, res) => {
       });
     }
 
-    const permission = await TeacherPermission.findById(req.params.id);
+    const permission = await TeacherPermissionModel.findById(req.params.id);
     if (!permission) {
       return res.status(404).json({
         success: false,
@@ -331,7 +331,7 @@ router.get('/check', [
 
     const { teacherId, examMaterialId, action } = req.query;
 
-    const hasPermission = await TeacherPermission.hasPermission(teacherId, examMaterialId, action);
+    const hasPermission = await TeacherPermissionModel.hasPermission(teacherId, examMaterialId, action);
 
     res.json({
       success: true,
@@ -383,7 +383,7 @@ router.get('/teacher/:teacherId', [
     const { teacherId } = req.params;
     const { page = 1, limit = 20 } = req.query;
 
-    const permissions = await TeacherPermission.getForTeacher(teacherId, {
+    const permissions = await TeacherPermissionModel.getForTeacher(teacherId, {
       page: parseInt(page),
       limit: parseInt(limit)
     });
@@ -420,7 +420,7 @@ router.get('/exam-material/:examMaterialId', async (req, res) => {
 
     const { examMaterialId } = req.params;
 
-    const permissions = await TeacherPermission.getForExamMaterial(examMaterialId);
+    const permissions = await TeacherPermissionModel.getForExamMaterial(examMaterialId);
 
     res.json({
       success: true,

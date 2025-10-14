@@ -1,6 +1,6 @@
 const express = require('express');
 const { body, validationResult, query } = require('express-validator');
-const Student = require('../models/Student');
+const StudentModel = require('../models/StudentModel');
 const keyGenerator = require('../utils/keyGenerator');
 const { verifyToken, isAdmin } = require('../middleware/auth');
 const router = express.Router();
@@ -72,27 +72,21 @@ router.get('/', [
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     // Get total count
-    const total = await Student.countDocuments(filter);
+    const total = await StudentModel.count(filter);
 
     // Get students
-    const students = await Student.find(filter)
-      .sort(sort)
-      .skip(skip)
-      .limit(parseInt(limit))
-      .select('-__v')
-      .lean();
+    const students = await StudentModel.find(filter, {
+      page: parseInt(page),
+      limit: parseInt(limit),
+      sortBy: sortBy,
+      order: sortOrder
+    });
 
     res.json({
       success: true,
       data: {
-        students,
-        pagination: {
-          currentPage: parseInt(page),
-          totalPages: Math.ceil(total / parseInt(limit)),
-          totalStudents: total,
-          hasNextPage: skip + parseInt(limit) < total,
-          hasPrevPage: parseInt(page) > 1
-        }
+        students: students.data,
+        pagination: students.pagination
       }
     });
   } catch (error) {
@@ -112,7 +106,7 @@ router.get('/', [
  */
 router.get('/:id', async (req, res) => {
   try {
-    const student = await Student.findById(req.params.id).select('-__v');
+    const student = await StudentModel.findById(req.params.id);
     
     if (!student) {
       return res.status(404).json({
@@ -179,7 +173,7 @@ router.post('/', [
     } = req.body;
 
     // Check if email already exists
-    const existingStudent = await Student.findOne({ email });
+    const existingStudent = await StudentModel.findOne({ email });
     if (existingStudent) {
       return res.status(400).json({
         success: false,
@@ -253,7 +247,7 @@ router.put('/:id', [
       });
     }
 
-    const student = await Student.findById(req.params.id);
+    const student = await StudentModel.findById(req.params.id);
     if (!student) {
       return res.status(404).json({
         success: false,
@@ -263,7 +257,7 @@ router.put('/:id', [
 
     // Check if email is being changed and if it already exists
     if (req.body.email && req.body.email !== student.email) {
-      const existingStudent = await Student.findOne({ email: req.body.email });
+      const existingStudent = await StudentModel.findOne({ email: req.body.email });
       if (existingStudent) {
         return res.status(400).json({
           success: false,
@@ -304,7 +298,7 @@ router.put('/:id', [
  */
 router.delete('/:id', async (req, res) => {
   try {
-    const student = await Student.findById(req.params.id);
+    const student = await StudentModel.findById(req.params.id);
     if (!student) {
       return res.status(404).json({
         success: false,
@@ -312,7 +306,7 @@ router.delete('/:id', async (req, res) => {
       });
     }
 
-    await Student.findByIdAndDelete(req.params.id);
+    await StudentModel.deleteById(req.params.id);
 
     res.json({
       success: true,
@@ -382,22 +376,30 @@ router.get('/stats/overview', async (req, res) => {
       studentsByGrade,
       studentsByStatus
     ] = await Promise.all([
-      Student.countDocuments({}),
-      Student.countDocuments({ status: 'active' }),
-      Student.countDocuments({ status: 'graduated' }),
-      Student.countDocuments({
+      StudentModel.count({}),
+      StudentModel.count({ status: 'active' }),
+      StudentModel.count({ status: 'graduated' }),
+      StudentModel.count({
         registrationDate: {
           $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) // Last 30 days
         }
       }),
-      Student.aggregate([
-        { $group: { _id: '$grade', count: { $sum: 1 } } },
-        { $sort: { count: -1 } }
-      ]),
-      Student.aggregate([
-        { $group: { _id: '$status', count: { $sum: 1 } } },
-        { $sort: { count: -1 } }
-      ])
+      // Get students by grade (simplified)
+      StudentModel.find({}, { limit: 1000 }).then(students => {
+        const gradeCount = {};
+        students.data.forEach(student => {
+          gradeCount[student.grade] = (gradeCount[student.grade] || 0) + 1;
+        });
+        return Object.entries(gradeCount).map(([grade, count]) => ({ _id: grade, count }));
+      }),
+      // Get students by status (simplified)
+      StudentModel.find({}, { limit: 1000 }).then(students => {
+        const statusCount = {};
+        students.data.forEach(student => {
+          statusCount[student.status] = (statusCount[student.status] || 0) + 1;
+        });
+        return Object.entries(statusCount).map(([status, count]) => ({ _id: status, count }));
+      })
     ]);
 
     res.json({
