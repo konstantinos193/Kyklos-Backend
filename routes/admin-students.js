@@ -186,7 +186,7 @@ router.post('/', [
     const uniqueKey = await keyGenerator.generateUniqueKey();
 
     // Create student
-    const student = new Student({
+    const student = new StudentModel({
       uniqueKey,
       firstName,
       lastName,

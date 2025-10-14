@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const Student = require('../models/Student');
+const Student = require('../models/StudentModel');
 
 /**
  * Generate a user-friendly unique key for students
