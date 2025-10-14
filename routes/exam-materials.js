@@ -6,7 +6,7 @@ const { body, validationResult, query } = require('express-validator');
 const ExamMaterialModel = require('../models/ExamMaterialModel');
 const StudentModel = require('../models/StudentModel');
 const AdminModel = require('../models/AdminModel');
-const auth = require('../middleware/auth');
+const { verifyToken, isAdmin } = require('../middleware/auth');
 const router = express.Router();
 
 // Configure multer for file uploads
@@ -307,7 +307,7 @@ router.get('/download/:id', async (req, res) => {
  * @desc Upload new exam material (Admin only)
  * @access Private (Admin)
  */
-router.post('/', auth, upload.single('file'), [
+router.post('/', verifyToken, isAdmin, upload.single('file'), [
   body('title').trim().isLength({ min: 1 }).withMessage('Ο τίτλος είναι υποχρεωτικός'),
   body('description').trim().isLength({ min: 1 }).withMessage('Η περιγραφή είναι υποχρεωτική'),
   body('subject').trim().isLength({ min: 1 }).withMessage('Το μάθημα είναι υποχρεωτικό'),
@@ -333,13 +333,7 @@ router.post('/', auth, upload.single('file'), [
       });
     }
 
-    // Check if user is admin
-    if (req.user.type !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Μη εξουσιοδοτημένη πρόσβαση'
-      });
-    }
+    // Admin check already handled by isAdmin middleware
 
     const {
       title,
@@ -359,7 +353,7 @@ router.post('/', auth, upload.single('file'), [
     // Parse tags
     const tagArray = tags ? tags.split(',').map(tag => tag.trim()).filter(tag => tag) : [];
 
-    const examMaterial = new ExamMaterial({
+    const examMaterial = await ExamMaterialModel.create({
       title,
       description,
       subject,
@@ -372,8 +366,8 @@ router.post('/', auth, upload.single('file'), [
       fileSize: req.file.size,
       mimeType: req.file.mimetype,
       tags: tagArray,
-      uploadedBy: req.user.id,
-      uploadedByName: req.user.name || 'Admin',
+      uploadedBy: req.admin.id,
+      uploadedByName: req.admin.email || 'Admin',
       metadata: {
         difficulty,
         duration: parseInt(duration),
@@ -381,8 +375,6 @@ router.post('/', auth, upload.single('file'), [
         points: parseInt(points)
       }
     });
-
-    await examMaterial.save();
 
     res.status(201).json({
       success: true,
@@ -415,7 +407,7 @@ router.post('/', auth, upload.single('file'), [
  * @desc Update exam material (Admin only)
  * @access Private (Admin)
  */
-router.put('/:id', auth, [
+router.put('/:id', verifyToken, isAdmin, [
   body('title').optional().trim().isLength({ min: 1 }),
   body('description').optional().trim().isLength({ min: 1 }),
   body('subject').optional().trim().isLength({ min: 1 }),
@@ -436,13 +428,7 @@ router.put('/:id', auth, [
       });
     }
 
-    // Check if user is admin
-    if (req.user.type !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Μη εξουσιοδοτημένη πρόσβαση'
-      });
-    }
+    // Admin check already handled by isAdmin middleware
 
     const material = await ExamMaterialModel.findById(req.params.id);
     if (!material) {
@@ -500,15 +486,9 @@ router.put('/:id', auth, [
  * @desc Delete exam material (Admin only)
  * @access Private (Admin)
  */
-router.delete('/:id', auth, async (req, res) => {
+router.delete('/:id', verifyToken, isAdmin, async (req, res) => {
   try {
-    // Check if user is admin
-    if (req.user.type !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Μη εξουσιοδοτημένη πρόσβαση'
-      });
-    }
+    // Admin check already handled by isAdmin middleware
 
     const material = await ExamMaterialModel.findById(req.params.id);
     if (!material) {
@@ -548,7 +528,7 @@ router.delete('/:id', auth, async (req, res) => {
  * @desc Get all exam materials for admin (with full details)
  * @access Private (Admin)
  */
-router.get('/admin/list', auth, [
+router.get('/admin/list', verifyToken, isAdmin, [
   query('page').optional().isInt({ min: 1 }),
   query('limit').optional().isInt({ min: 1, max: 100 }),
   query('subject').optional().trim(),
@@ -566,13 +546,7 @@ router.get('/admin/list', auth, [
       });
     }
 
-    // Check if user is admin
-    if (req.user.type !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Μη εξουσιοδοτημένη πρόσβαση'
-      });
-    }
+    // Admin check already handled by isAdmin middleware
 
     // Build filters
     const filters = {};
