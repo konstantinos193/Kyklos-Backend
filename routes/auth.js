@@ -1,7 +1,7 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
-const Student = require('../models/Student');
+const StudentModel = require('../models/StudentModel');
 const router = express.Router();
 
 /**
@@ -26,10 +26,9 @@ router.post('/student-login', [
     const { studentId, uniqueKey } = req.body;
     let student = null;
     if (studentId) {
-      student = await Student.findOne({ studentId: String(studentId).trim() });
+      student = await StudentModel.findByStudentId(studentId);
     } else if (uniqueKey) {
-      const normalizedKey = String(uniqueKey).toUpperCase();
-      student = await Student.findOne({ uniqueKey: normalizedKey });
+      student = await StudentModel.findByUniqueKey(uniqueKey);
     } else {
       return res.status(400).json({ success: false, message: 'Απαιτείται κωδικός μαθητή' });
     }
@@ -50,8 +49,7 @@ router.post('/student-login', [
     }
 
     // Update last login
-    student.lastLogin = new Date();
-    await student.save();
+    await StudentModel.updateLastLogin(student._id);
 
     // Generate JWT token
     const token = jwt.sign(
@@ -122,7 +120,7 @@ router.post('/student-verify', async (req, res) => {
       });
     }
 
-    const student = await Student.findById(decoded.studentId).select('-__v');
+    const student = await StudentModel.findById(decoded.studentId);
 
     if (!student) {
       return res.status(401).json({

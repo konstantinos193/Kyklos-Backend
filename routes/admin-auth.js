@@ -1,7 +1,7 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const { generateToken } = require('../middleware/auth');
-const Admin = require('../models/Admin');
+const AdminModel = require('../models/AdminModel');
 const router = express.Router();
 
 // POST /api/admin/auth/login - Admin login
@@ -22,7 +22,7 @@ router.post('/login', [
     const { email, password } = req.body;
 
     // Find admin by email
-    const admin = await Admin.findByEmail(email);
+    const admin = await AdminModel.findByEmail(email);
     if (!admin) {
       return res.status(401).json({
         success: false,
@@ -39,7 +39,7 @@ router.post('/login', [
     }
 
     // Compare password
-    const isValidPassword = await admin.comparePassword(password);
+    const isValidPassword = await AdminModel.comparePassword(password, admin.password);
     if (!isValidPassword) {
       return res.status(401).json({
         success: false,
@@ -48,7 +48,7 @@ router.post('/login', [
     }
 
     // Update last login
-    await admin.updateLastLogin();
+    await AdminModel.updateLastLogin(admin._id);
 
     // Generate JWT token
     const token = generateToken({
@@ -70,7 +70,7 @@ router.post('/login', [
       success: true,
       message: 'Login successful',
       data: {
-        admin: admin.getPublicProfile(),
+        admin: AdminModel.getPublicProfile(admin),
         token
       }
     });

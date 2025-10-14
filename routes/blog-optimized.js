@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { body, validationResult } = require('express-validator');
-const Blog = require('../models/Blog');
+const BlogModel = require('../models/BlogModel');
 const { cache } = require('../config/upstash-redis');
 
 // Cache duration constants
@@ -48,34 +48,39 @@ router.get('/', async (req, res) => {
       ];
     }
     
-    // Optimized query with lean() for better performance
-    const posts = await Blog.find(query)
-      .select('title slug excerpt author category tags image publishDate readTime views likes featured')
-      .lean()
-      .sort({ featured: -1, publishDate: -1 })
-      .limit(parseInt(limit))
-      .skip((parseInt(page) - 1) * parseInt(limit));
+    // Get published blog posts
+    const result = await BlogModel.find(query, {
+      page: parseInt(page),
+      limit: parseInt(limit),
+      sortBy: 'publishDate',
+      order: 'desc'
+    });
     
-    const total = await Blog.countDocuments(query);
+    // Sort featured posts first
+    result.data.sort((a, b) => {
+      if (a.featured && !b.featured) return -1;
+      if (!a.featured && b.featured) return 1;
+      return 0;
+    });
     
-    const result = {
-      data: posts,
+    const formattedResult = {
+      data: result.data,
       pagination: {
-        current: parseInt(page),
-        pages: Math.ceil(total / parseInt(limit)),
-        total,
-        hasNext: parseInt(page) < Math.ceil(total / parseInt(limit)),
-        hasPrev: parseInt(page) > 1
+        current: result.pagination.page,
+        pages: result.pagination.pages,
+        total: result.pagination.total,
+        hasNext: result.pagination.page < result.pagination.pages,
+        hasPrev: result.pagination.page > 1
       }
     };
     
     // Cache the result
-    await cache.set(cacheKey, result, CACHE_DURATION.BLOG_LIST);
+    await cache.set(cacheKey, formattedResult, CACHE_DURATION.BLOG_LIST);
     
     res.json({
       success: true,
-      data: result.data,
-      pagination: result.pagination,
+      data: formattedResult.data,
+      pagination: formattedResult.pagination,
       cached: false,
       timestamp: new Date().toISOString()
     });

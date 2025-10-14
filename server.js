@@ -5,7 +5,7 @@ const morgan = require('morgan');
 const compression = require('compression');
 const httpContext = require('express-http-context');
 require('dotenv').config();
-const connectDB = require('./config/database');
+const { connectDB, getDB } = require('./config/database');
 const { connectRedis, cache } = require('./config/upstash-redis');
 
 // Connect to database
@@ -89,11 +89,17 @@ app.use('/api/health', require('./routes/health-fast'));
 // Auth routes
 app.use('/api/auth', require('./routes/auth'));
 
+// Exam materials routes
+app.use('/api/exam-materials', require('./routes/exam-materials'));
+
+// Teacher permissions routes
+app.use('/api/teacher-permissions', require('./routes/teacher-permissions'));
+
 // Health check (detailed)
 app.get('/health', async (req, res) => {
   const start = Date.now();
 
-  const mongoose = require('mongoose');
+  const { getDB } = require('./config/database');
   const { cache } = require('./config/upstash-redis');
   const emailService = require('./utils/emailService');
 
@@ -108,13 +114,8 @@ app.get('/health', async (req, res) => {
   // DB check
   const dbCheck = (async () => {
     try {
-      if (mongoose.connection.readyState !== 1) {
-        // 1 = connected
-        return { ok: false, details: 'not_connected' };
-      }
-      if (mongoose.connection.db && mongoose.connection.db.admin) {
-        await mongoose.connection.db.admin().ping();
-      }
+      const db = getDB();
+      await db.admin().ping();
       return { ok: true };
     } catch (e) {
       return { ok: false, details: e.message };

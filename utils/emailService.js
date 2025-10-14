@@ -1,5 +1,5 @@
 const nodemailer = require('nodemailer');
-const Newsletter = require('../models/Newsletter');
+const NewsletterModel = require('../models/NewsletterModel');
 const { cache } = require('../config/upstash-redis');
 
 class EmailService {
@@ -48,17 +48,14 @@ class EmailService {
   async subscribeToNewsletter(email, name = '', source = 'website') {
     try {
       // Check if already subscribed
-      const existing = await Newsletter.findOne({ email: email.toLowerCase() });
+      const existing = await NewsletterModel.findByEmail(email);
       
       if (existing) {
         if (existing.isActive) {
           return { success: false, message: 'Email already subscribed' };
         } else {
           // Reactivate subscription
-          existing.isActive = true;
-          existing.subscribedAt = new Date();
-          existing.unsubscribedAt = null;
-          await existing.save();
+          await NewsletterModel.resubscribe(email);
           
           // Clear cache
           await cache.delPattern('newsletter:*');
@@ -68,14 +65,12 @@ class EmailService {
       }
 
       // Create new subscription
-      const subscriber = new Newsletter({
+      const subscriber = await NewsletterModel.create({
         email: email.toLowerCase(),
         name: name.trim(),
         source: source,
         isActive: true
       });
-
-      await subscriber.save();
 
       // Clear cache
       await cache.delPattern('newsletter:*');
