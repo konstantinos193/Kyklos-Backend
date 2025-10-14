@@ -82,6 +82,7 @@ app.use('/api/contact', require('./routes/contact'));
 app.use('/api/admin/auth', require('./routes/admin-auth'));
 app.use('/api/admin/students', require('./routes/admin-students'));
 app.use('/api/admin/stats', require('./routes/admin-stats'));
+app.use('/api/admin/settings', require('./routes/admin-settings'));
 
 // Health routes
 app.use('/api/health', require('./routes/health-fast'));

@@ -13,13 +13,24 @@ router.use(isAdmin);
 // GET /api/admin/stats - Aggregate real stats
 router.get('/', async (req, res) => {
   try {
+    // Check if models are available and database is connected
+    const { getDB } = require('../config/database');
+    const db = getDB();
+    
+    if (!db) {
+      return res.status(503).json({ 
+        success: false, 
+        message: 'Database not connected' 
+      });
+    }
+
     const [totalUsers, totalBlogs, totalSubscribers, viewsAgg] = await Promise.all([
-      StudentModel.countDocuments({}),
-      BlogModel.countDocuments({ status: 'published' }),
-      NewsletterModel.countDocuments({ isActive: true }),
+      StudentModel.countDocuments({}).catch(() => 0),
+      BlogModel.countDocuments({ status: 'published' }).catch(() => 0),
+      NewsletterModel.countDocuments({ isActive: true }).catch(() => 0),
       BlogModel.aggregate([
         { $group: { _id: null, totalViews: { $sum: { $ifNull: ['$views', 0] } } } }
-      ])
+      ]).catch(() => [{ totalViews: 0 }])
     ]);
 
     const totalViews = Array.isArray(viewsAgg) && viewsAgg.length > 0 ? (viewsAgg[0].totalViews || 0) : 0;
@@ -27,15 +38,19 @@ router.get('/', async (req, res) => {
     return res.status(200).json({
       success: true,
       data: {
-        totalUsers,
-        totalBlogs,
-        totalSubscribers,
-        totalViews
+        totalUsers: totalUsers || 0,
+        totalBlogs: totalBlogs || 0,
+        totalSubscribers: totalSubscribers || 0,
+        totalViews: totalViews || 0
       }
     });
   } catch (error) {
     console.error('Admin stats error:', error);
-    return res.status(500).json({ success: false, message: 'Internal server error' });
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Internal server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 

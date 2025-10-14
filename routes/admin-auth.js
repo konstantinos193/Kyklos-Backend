@@ -130,10 +130,8 @@ router.post('/login', [
     res.json({
       success: true,
       message: 'Login successful',
-      data: {
-        admin: AdminModel.getPublicProfile(admin),
-        token
-      }
+      admin: AdminModel.getPublicProfile(admin),
+      token
     });
   } catch (error) {
     console.error('Admin login error:', error);
@@ -175,14 +173,17 @@ router.get('/verify', (req, res) => {
         admin: {
           id: decoded.id,
           email: decoded.email,
+          name: decoded.name,
           role: decoded.role
         }
       }
     });
   } catch (error) {
+    console.error('Token verification error in /verify:', error.message);
     res.status(401).json({
       success: false,
-      message: 'Invalid token'
+      message: 'Invalid token',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
