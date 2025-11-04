@@ -137,13 +137,13 @@ router.get('/:id', async (req, res) => {
 router.post('/', [
   body('firstName').trim().notEmpty().withMessage('First name is required'),
   body('lastName').trim().notEmpty().withMessage('Last name is required'),
-  body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
-  body('phone').matches(/^(\+30|0030)?[0-9]{10}$/).withMessage('Valid Greek phone number is required'),
+  body('email').isEmail().withMessage('Valid email is required'),
+  body('phone').matches(/^(\+30|0030)?[0-9]{10}$/).withMessage('Valid Greek phone number is required (10 digits, optionally prefixed with +30 or 0030)'),
   body('grade').isIn(['Γ Λυκείου', 'Β Λυκείου', 'Α Λυκείου', 'Γ Γυμνασίου', 'Β Γυμνασίου', 'Α Γυμνασίου']).withMessage('Valid grade is required'),
   body('school').trim().notEmpty().withMessage('School is required'),
   body('parentName').trim().notEmpty().withMessage('Parent name is required'),
-  body('parentPhone').matches(/^(\+30|0030)?[0-9]{10}$/).withMessage('Valid parent phone number is required'),
-  body('parentEmail').optional().isEmail().normalizeEmail().withMessage('Valid parent email is required'),
+  body('parentPhone').matches(/^(\+30|0030)?[0-9]{10}$/).withMessage('Valid parent phone number is required (10 digits, optionally prefixed with +30 or 0030)'),
+  body('parentEmail').optional().isEmail().withMessage('Valid parent email is required'),
   body('subjects').optional().isArray().withMessage('Subjects must be an array'),
   body('location').optional().isString().withMessage('Location must be a string'),
   body('notes').optional().isString().isLength({ max: 500 }).withMessage('Notes must be less than 500 characters')

@@ -67,7 +67,7 @@ router.post('/create', [
 
 // POST /api/admin/auth/login - Admin login
 router.post('/login', [
-  body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
+  body('email').isEmail().withMessage('Valid email is required'),
   body('password').notEmpty().withMessage('Password is required')
 ], async (req, res) => {
   try {
@@ -81,9 +81,13 @@ router.post('/login', [
     }
 
     const { email, password } = req.body;
+    
+    // Normalize email (lowercase) manually instead of using normalizeEmail()
+    // This prevents issues with emails like grkyklos-@hotmail.gr
+    const normalizedEmail = email.toLowerCase().trim();
 
     // Find admin by email
-    const admin = await AdminModel.findByEmail(email);
+    const admin = await AdminModel.findByEmail(normalizedEmail);
     if (!admin) {
       return res.status(401).json({
         success: false,

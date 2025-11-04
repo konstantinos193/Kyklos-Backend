@@ -122,12 +122,15 @@ router.get('/', [
     .sort({ createdAt: -1 })
     .skip(skip)
     .limit(limit)
-    .select('-filePath -accessPermissions');
+    .select('-filePath');
 
     // Filter materials based on student access
-    const accessibleMaterials = materials.filter(material => 
-      material.hasStudentAccess(student)
-    );
+    const accessibleMaterials = [];
+    for (const material of materials) {
+      if (await ExamMaterialModel.hasStudentAccess(material, student)) {
+        accessibleMaterials.push(material);
+      }
+    }
 
     // Get total count for pagination
     const totalCount = await ExamMaterialModel.countDocuments({
@@ -199,7 +202,7 @@ router.get('/:id', async (req, res) => {
     }
 
     // Check if student has access
-    if (!material.hasStudentAccess(student)) {
+    if (!ExamMaterialModel.hasStudentAccess(material, student)) {
       return res.status(403).json({
         success: false,
         message: 'Δεν έχετε πρόσβαση σε αυτό το υλικό'
@@ -263,7 +266,7 @@ router.get('/download/:id', async (req, res) => {
     }
 
     // Check if student has access
-    if (!material.hasStudentAccess(student)) {
+    if (!ExamMaterialModel.hasStudentAccess(material, student)) {
       return res.status(403).json({
         success: false,
         message: 'Δεν έχετε πρόσβαση σε αυτό το υλικό'

@@ -442,32 +442,41 @@ class ExamMaterialModel {
       return false;
     }
     
+    // Ensure accessPermissions exists
+    const accessPermissions = material.accessPermissions || {
+      students: [],
+      grades: [],
+      subjects: [],
+      timeRestrictions: null
+    };
+    
     // Check access level
     const studentAccessLevel = student.accessLevel || 'basic';
     const accessLevels = ['basic', 'premium', 'vip'];
     const studentLevelIndex = accessLevels.indexOf(studentAccessLevel);
-    const materialLevelIndex = accessLevels.indexOf(material.accessLevel);
+    const materialLevelIndex = accessLevels.indexOf(material.accessLevel || 'basic');
     
     if (studentLevelIndex < materialLevelIndex) {
       return false;
     }
     
-    // Check specific permissions
-    if (material.accessPermissions.students.length > 0) {
-      if (!material.accessPermissions.students.includes(student._id.toString())) {
+    // Check specific permissions - if any are set, they must be satisfied
+    if (accessPermissions.students && accessPermissions.students.length > 0) {
+      if (!accessPermissions.students.includes(student._id.toString())) {
         return false;
       }
     }
     
-    if (material.accessPermissions.grades.length > 0) {
-      if (!material.accessPermissions.grades.includes(student.grade)) {
+    if (accessPermissions.grades && accessPermissions.grades.length > 0) {
+      if (!accessPermissions.grades.includes(student.grade)) {
         return false;
       }
     }
     
-    if (material.accessPermissions.subjects.length > 0) {
-      const hasSubjectAccess = material.accessPermissions.subjects.some(subject => 
-        student.subjects.includes(subject)
+    if (accessPermissions.subjects && accessPermissions.subjects.length > 0) {
+      const studentSubjects = student.subjects || [];
+      const hasSubjectAccess = accessPermissions.subjects.some(subject => 
+        studentSubjects.includes(subject)
       );
       if (!hasSubjectAccess) {
         return false;
@@ -475,15 +484,15 @@ class ExamMaterialModel {
     }
     
     // Check time restrictions
-    if (material.accessPermissions.timeRestrictions) {
+    if (accessPermissions.timeRestrictions) {
       const now = new Date();
-      const { startDate, endDate } = material.accessPermissions.timeRestrictions;
+      const { startDate, endDate } = accessPermissions.timeRestrictions;
       
-      if (startDate && now < startDate) {
+      if (startDate && now < new Date(startDate)) {
         return false;
       }
       
-      if (endDate && now > endDate) {
+      if (endDate && now > new Date(endDate)) {
         return false;
       }
     }
