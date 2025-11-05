@@ -13,7 +13,14 @@ const verifyToken = (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
+    if (!process.env.JWT_SECRET) {
+      console.error('JWT secret is not configured. Set JWT_SECRET in environment.');
+      return res.status(500).json({
+        success: false,
+        message: 'Server configuration error: JWT not configured'
+      });
+    }
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.admin = decoded;
     next();
   } catch (error) {
@@ -40,6 +47,9 @@ const isAdmin = (req, res, next) => {
 
 // Generate JWT token
 const generateToken = (adminData) => {
+  if (!process.env.JWT_SECRET) {
+    throw new Error('JWT secret is not configured');
+  }
   return jwt.sign(
     {
       id: adminData.id,
@@ -47,7 +57,7 @@ const generateToken = (adminData) => {
       name: adminData.name,
       role: adminData.role || 'admin'
     },
-    process.env.JWT_SECRET || 'fallback-secret',
+    process.env.JWT_SECRET,
     { expiresIn: '24h' }
   );
 };

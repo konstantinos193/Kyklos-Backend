@@ -1,10 +1,12 @@
 const express = require('express');
+const path = require('path');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const compression = require('compression');
 const httpContext = require('express-http-context');
-require('dotenv').config();
+// Ensure .env is loaded from the backend directory regardless of CWD
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 const { connectDB, getDB } = require('./config/database');
 const { connectRedis, cache } = require('./config/upstash-redis');
 
@@ -82,6 +84,7 @@ app.use('/api/contact', require('./routes/contact'));
 app.use('/api/admin/auth', require('./routes/admin-auth'));
 app.use('/api/admin/students', require('./routes/admin-students'));
 app.use('/api/admin/stats', require('./routes/admin-stats'));
+app.use('/api/admin/teachers', require('./routes/admin-teachers'));
 app.use('/api/admin/settings', require('./routes/admin-settings'));
 
 // Health routes

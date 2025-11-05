@@ -31,8 +31,8 @@ router.get('/', [
       });
     }
 
-    // Check if user is admin
-    if (req.admin.role !== 'admin') {
+    // Check if user is admin (allow admin, super_admin, moderator)
+    if (!(req.admin && (req.admin.role === 'admin' || req.admin.role === 'super_admin' || req.admin.role === 'moderator'))) {
       return res.status(403).json({
         success: false,
         message: 'Unauthorized access'
@@ -56,28 +56,24 @@ router.get('/', [
     // Pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    // Get permissions
-    const permissions = await TeacherPermissionModel.find(filter)
-      .populate('teacher', 'name email')
-      .populate('examMaterial', 'title subject grade year type')
-      .populate('grantedBy', 'name email')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(parseInt(limit));
-
-    // Get total count
-    const total = await TeacherPermissionModel.countDocuments(filter);
+    // Get permissions using custom model API
+    const result = await TeacherPermissionModel.find(filter, {
+      page: parseInt(page),
+      limit: parseInt(limit),
+      sortBy: 'createdAt',
+      order: 'desc'
+    });
 
     res.json({
       success: true,
       data: {
-        permissions,
+        permissions: result.data,
         pagination: {
-          currentPage: parseInt(page),
-          totalPages: Math.ceil(total / parseInt(limit)),
-          totalPermissions: total,
-          hasNextPage: skip + parseInt(limit) < total,
-          hasPrevPage: parseInt(page) > 1
+          currentPage: result.pagination.page,
+          totalPages: result.pagination.pages,
+          totalPermissions: result.pagination.total,
+          hasNextPage: result.pagination.page < result.pagination.pages,
+          hasPrevPage: result.pagination.page > 1
         }
       }
     });
@@ -114,8 +110,8 @@ router.post('/', [
       });
     }
 
-    // Check if user is admin
-    if (req.admin.role !== 'admin') {
+    // Check if user is admin (allow admin, super_admin, moderator)
+    if (!(req.admin && (req.admin.role === 'admin' || req.admin.role === 'super_admin' || req.admin.role === 'moderator'))) {
       return res.status(403).json({
         success: false,
         message: 'Unauthorized access'
@@ -174,10 +170,9 @@ router.post('/', [
       notes
     });
 
-    await permission.save();
-
+    // Save permission already done by create; permission contains _id
     // Log the action
-    await permission.logAccess('grant', `Permission ${permissionType} granted`);
+    await TeacherPermissionModel.logAccess(permission._id, 'grant', `Permission ${permissionType} granted`);
 
     res.status(201).json({
       success: true,
@@ -216,8 +211,8 @@ router.put('/:id', [
       });
     }
 
-    // Check if user is admin
-    if (req.admin.role !== 'admin') {
+    // Check if user is admin (allow admin, super_admin, moderator)
+    if (!(req.admin && (req.admin.role === 'admin' || req.admin.role === 'super_admin' || req.admin.role === 'moderator'))) {
       return res.status(403).json({
         success: false,
         message: 'Unauthorized access'
@@ -271,8 +266,8 @@ router.put('/:id', [
  */
 router.delete('/:id', async (req, res) => {
   try {
-    // Check if user is admin
-    if (req.admin.role !== 'admin') {
+    // Check if user is admin (allow admin, super_admin, moderator)
+    if (!(req.admin && (req.admin.role === 'admin' || req.admin.role === 'super_admin' || req.admin.role === 'moderator'))) {
       return res.status(403).json({
         success: false,
         message: 'Unauthorized access'
@@ -372,8 +367,8 @@ router.get('/teacher/:teacherId', [
       });
     }
 
-    // Check if user is admin
-    if (req.admin.role !== 'admin') {
+    // Check if user is admin (allow admin, super_admin, moderator)
+    if (!(req.admin && (req.admin.role === 'admin' || req.admin.role === 'super_admin' || req.admin.role === 'moderator'))) {
       return res.status(403).json({
         success: false,
         message: 'Unauthorized access'

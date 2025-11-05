@@ -88,7 +88,7 @@ class EmailService {
   // Unsubscribe from newsletter
   async unsubscribeFromNewsletter(email) {
     try {
-      const subscriber = await Newsletter.findOne({ 
+      const subscriber = await NewsletterModel.findOne({ 
         email: email.toLowerCase(),
         isActive: true 
       });
@@ -248,7 +248,7 @@ class EmailService {
   // Send newsletter to all subscribers
   async sendNewsletterToAll(subject, content, featuredImage = null) {
     try {
-      const subscribers = await Newsletter.find({ isActive: true });
+      const subscribers = await NewsletterModel.find({ isActive: true });
       
       if (subscribers.length === 0) {
         return { success: false, message: 'No active subscribers found' };
@@ -332,10 +332,10 @@ class EmailService {
       let stats = await cache.get(cacheKey);
       
       if (!stats) {
-        const total = await Newsletter.countDocuments();
-        const active = await Newsletter.countDocuments({ isActive: true });
+        const total = await NewsletterModel.count();
+        const active = await NewsletterModel.count({ isActive: true });
         const inactive = total - active;
-        const thisMonth = await Newsletter.countDocuments({
+        const thisMonth = await NewsletterModel.count({
           subscribedAt: { $gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) },
           isActive: true
         });

@@ -186,7 +186,7 @@ router.post('/', [
     const uniqueKey = await keyGenerator.generateUniqueKey();
 
     // Create student
-    const student = new StudentModel({
+    const student = await StudentModel.create({
       uniqueKey,
       firstName,
       lastName,
@@ -200,8 +200,6 @@ router.post('/', [
       subjects,
       notes
     });
-
-    await student.save();
 
     res.status(201).json({
       success: true,
@@ -267,19 +265,21 @@ router.put('/:id', [
       }
     }
 
-    // Update student
+    // Build update data (only include defined fields)
+    const updateData = {};
     Object.keys(req.body).forEach(key => {
       if (req.body[key] !== undefined) {
-        student[key] = req.body[key];
+        updateData[key] = req.body[key];
       }
     });
 
-    await student.save();
+    // Update student
+    const updatedStudent = await StudentModel.updateById(req.params.id, updateData);
 
     res.json({
       success: true,
       message: 'Student updated successfully',
-      data: student
+      data: updatedStudent
     });
   } catch (error) {
     console.error('Error updating student:', error);
@@ -418,6 +418,166 @@ router.get('/stats/overview', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error fetching student statistics',
+      error: process.env.NODE_ENV === 'production' ? 'Internal server error' : error.message
+    });
+  }
+});
+
+/**
+ * @route PUT /api/admin/students/bulk/exam-access
+ * @desc Grant or revoke exam access for multiple students
+ * @access Admin
+ */
+router.put('/bulk/exam-access', [
+  body('studentIds').isArray().withMessage('studentIds must be an array'),
+  body('studentIds.*').isString().withMessage('Each student ID must be a string'),
+  body('hasAccessToThemata').isBoolean().withMessage('hasAccessToThemata must be a boolean')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation errors',
+        errors: errors.array()
+      });
+    }
+
+    const { studentIds, hasAccessToThemata } = req.body;
+
+    if (!Array.isArray(studentIds) || studentIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'studentIds must be a non-empty array'
+      });
+    }
+
+    // Prepare update data
+    const updateData = {
+      hasAccessToThemata: hasAccessToThemata
+    };
+
+    // If granting access, record who granted it and when
+    if (hasAccessToThemata) {
+      updateData.themataAccessGrantedAt = new Date();
+      updateData.themataAccessGrantedBy = req.admin.id || req.admin._id;
+    } else {
+      // If revoking access, clear the grant fields
+      updateData.themataAccessGrantedAt = null;
+      updateData.themataAccessGrantedBy = null;
+    }
+
+    // Update all students
+    const results = {
+      success: [],
+      failed: []
+    };
+
+    for (const studentId of studentIds) {
+      try {
+        // Check if student exists
+        const student = await StudentModel.findById(studentId);
+        if (!student) {
+          results.failed.push({
+            studentId,
+            error: 'Student not found'
+          });
+          continue;
+        }
+
+        // Update student
+        const updatedStudent = await StudentModel.updateById(studentId, updateData);
+        results.success.push({
+          studentId,
+          student: updatedStudent
+        });
+      } catch (error) {
+        results.failed.push({
+          studentId,
+          error: error.message
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Ενημέρωση πρόσβασης για ${results.success.length} μαθητή/ές. ${results.failed.length > 0 ? `${results.failed.length} απέτυχαν.` : ''}`,
+      data: {
+        updated: results.success.length,
+        failed: results.failed.length,
+        results: results
+      }
+    });
+  } catch (error) {
+    console.error('Error bulk updating exam access:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error bulk updating exam access',
+      error: process.env.NODE_ENV === 'production' ? 'Internal server error' : error.message
+    });
+  }
+});
+
+/**
+ * @route PUT /api/admin/students/:id/exam-access
+ * @desc Grant or revoke exam access for a student
+ * @access Admin
+ */
+router.put('/:id/exam-access', [
+  body('hasAccessToThemata').isBoolean().withMessage('hasAccessToThemata must be a boolean')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation errors',
+        errors: errors.array()
+      });
+    }
+
+    const { hasAccessToThemata } = req.body;
+    const studentId = req.params.id;
+
+    // Check if student exists
+    const student = await StudentModel.findById(studentId);
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student not found'
+      });
+    }
+
+    // Prepare update data
+    const updateData = {
+      hasAccessToThemata: hasAccessToThemata
+    };
+
+    // If granting access, record who granted it and when
+    if (hasAccessToThemata) {
+      updateData.themataAccessGrantedAt = new Date();
+      updateData.themataAccessGrantedBy = req.admin.id || req.admin._id;
+    } else {
+      // If revoking access, clear the grant fields (optional - you might want to keep history)
+      updateData.themataAccessGrantedAt = null;
+      updateData.themataAccessGrantedBy = null;
+    }
+
+    // Update student
+    const updatedStudent = await StudentModel.updateById(studentId, updateData);
+
+    res.json({
+      success: true,
+      message: hasAccessToThemata 
+        ? 'Πρόσβαση στα θέματα πανελληνίων χορηγήθηκε επιτυχώς' 
+        : 'Πρόσβαση στα θέματα πανελληνίων ανακλήθηκε επιτυχώς',
+      data: updatedStudent
+    });
+  } catch (error) {
+    console.error('Error updating exam access:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating exam access',
       error: process.env.NODE_ENV === 'production' ? 'Internal server error' : error.message
     });
   }

@@ -25,8 +25,15 @@ router.post('/student-login', [
 
     const { studentId, uniqueKey } = req.body;
     let student = null;
+    
+    // Try to find student by studentId first, then by uniqueKey
+    // This handles both cases: when studentId field exists and when students use uniqueKey to login
     if (studentId) {
       student = await StudentModel.findByStudentId(studentId);
+      // If not found by studentId, try to find by uniqueKey (students might use uniqueKey as login)
+      if (!student) {
+        student = await StudentModel.findByUniqueKey(studentId);
+      }
     } else if (uniqueKey) {
       student = await StudentModel.findByUniqueKey(uniqueKey);
     } else {
@@ -41,10 +48,20 @@ router.post('/student-login', [
     }
 
     // Check if student is active
-    if (student.status !== 'active') {
+    // Default to 'active' if status is not set (for backwards compatibility)
+    const studentStatus = student.status || 'active';
+    
+    if (studentStatus !== 'active') {
+      const statusMessages = {
+        'inactive': 'ανενεργός',
+        'suspended': 'ανασταλμένος',
+        'graduated': 'αποφοιτημένος'
+      };
+      const statusMessage = statusMessages[studentStatus] || 'μη διαθέσιμος';
+      
       return res.status(401).json({
         success: false,
-        message: `Ο λογαριασμός σας είναι ${student.status}. Επικοινωνήστε με το φροντιστήριο.`
+        message: `Ο λογαριασμός σας είναι ${statusMessage}. Επικοινωνήστε με το φροντιστήριο.`
       });
     }
 
@@ -59,7 +76,7 @@ router.post('/student-login', [
         studentCode: student.studentId || null,
         type: 'student'
       },
-      process.env.JWT_SECRET || 'your-secret-key',
+      process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
 
@@ -76,7 +93,8 @@ router.post('/student-login', [
       subjects: student.subjects,
       status: student.status,
       registrationDate: student.registrationDate,
-      lastLogin: student.lastLogin
+      lastLogin: student.lastLogin,
+      hasAccessToThemata: student.hasAccessToThemata || false
     };
 
     res.json({
@@ -111,7 +129,7 @@ router.post('/student-verify', async (req, res) => {
       });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     if (decoded.type !== 'student') {
       return res.status(401).json({
@@ -150,7 +168,8 @@ router.post('/student-verify', async (req, res) => {
         subjects: student.subjects,
         status: student.status,
         registrationDate: student.registrationDate,
-        lastLogin: student.lastLogin
+        lastLogin: student.lastLogin,
+        hasAccessToThemata: student.hasAccessToThemata || false
       }
     });
   } catch (error) {

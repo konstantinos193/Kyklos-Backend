@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js",
+    "dev": "cross-env NODE_ENV=development nodemon server.js",
     "test": "jest",
     "create-admin": "node create-admin-simple.js"
   },
@@ -40,6 +40,7 @@
     "redis": "^5.8.3"
   },
   "devDependencies": {
+    "cross-env": "^7.0.3",
     "jest": "^30.2.0",
     "nodemon": "^3.1.10",
     "supertest": "^7.1.4"

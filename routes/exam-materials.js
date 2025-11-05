@@ -84,7 +84,15 @@ router.get('/', [
     }
 
     const jwt = require('jsonwebtoken');
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({
+        success: false,
+        message: 'Μη έγκυρο token'
+      });
+    }
     
     if (decoded.type !== 'student') {
       return res.status(401).json({
@@ -98,6 +106,14 @@ router.get('/', [
       return res.status(401).json({
         success: false,
         message: 'Μη έγκυρος μαθητής'
+      });
+    }
+
+    // Check if student has access to exam materials
+    if (!student.hasAccessToThemata) {
+      return res.status(403).json({
+        success: false,
+        message: 'Δεν έχετε πρόσβαση στα θέματα πανελληνίων. Επικοινωνήστε με το φροντιστήριο.'
       });
     }
 
@@ -165,6 +181,67 @@ router.get('/', [
  * @desc Get specific exam material details
  * @access Private (Student)
  */
+// Admin listing routes should be defined before param routes to avoid conflicts
+/**
+ * @route GET /api/exam-materials/admin
+ * @desc Get all exam materials for admin (alias to /admin/list)
+ * @access Private (Admin)
+ */
+router.get('/admin', verifyToken, isAdmin, [
+  query('page').optional().isInt({ min: 1 }),
+  query('limit').optional().isInt({ min: 1, max: 100 }),
+  query('subject').optional().trim(),
+  query('grade').optional().trim(),
+  query('type').optional().trim(),
+  query('status').optional().isIn(['active', 'inactive', 'locked'])
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation errors',
+        errors: errors.array()
+      });
+    }
+
+    const filters = {};
+    if (req.query.subject) filters.subject = req.query.subject;
+    if (req.query.grade) filters.grade = req.query.grade;
+    if (req.query.type) filters.type = req.query.type;
+    if (req.query.status) {
+      if (req.query.status === 'active') filters.isActive = true;
+      if (req.query.status === 'inactive') filters.isActive = false;
+      if (req.query.status === 'locked') filters.isLocked = true;
+    }
+
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    const result = await ExamMaterialModel.find(filters, {
+      page,
+      limit,
+      sortBy: 'createdAt',
+      order: 'desc'
+    });
+
+    res.json({
+      success: true,
+      data: result.data,
+      pagination: result.pagination
+    });
+
+  } catch (error) {
+    console.error('Get admin exam materials error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: process.env.NODE_ENV === 'production' ? 'Something went wrong' : error.message
+    });
+  }
+});
+
 router.get('/:id', async (req, res) => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
@@ -176,7 +253,15 @@ router.get('/:id', async (req, res) => {
     }
 
     const jwt = require('jsonwebtoken');
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({
+        success: false,
+        message: 'Μη έγκυρο token'
+      });
+    }
     
     if (decoded.type !== 'student') {
       return res.status(401).json({
@@ -190,6 +275,14 @@ router.get('/:id', async (req, res) => {
       return res.status(401).json({
         success: false,
         message: 'Μη έγκυρος μαθητής'
+      });
+    }
+
+    // Check if student has access to exam materials
+    if (!student.hasAccessToThemata) {
+      return res.status(403).json({
+        success: false,
+        message: 'Δεν έχετε πρόσβαση στα θέματα πανελληνίων. Επικοινωνήστε με το φροντιστήριο.'
       });
     }
 
@@ -240,7 +333,15 @@ router.get('/download/:id', async (req, res) => {
     }
 
     const jwt = require('jsonwebtoken');
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({
+        success: false,
+        message: 'Μη έγκυρο token'
+      });
+    }
     
     if (decoded.type !== 'student') {
       return res.status(401).json({
@@ -254,6 +355,14 @@ router.get('/download/:id', async (req, res) => {
       return res.status(401).json({
         success: false,
         message: 'Μη έγκυρος μαθητής'
+      });
+    }
+
+    // Check if student has access to exam materials
+    if (!student.hasAccessToThemata) {
+      return res.status(403).json({
+        success: false,
+        message: 'Δεν έχετε πρόσβαση στα θέματα πανελληνίων. Επικοινωνήστε με το φροντιστήριο.'
       });
     }
 

@@ -102,6 +102,20 @@ const studentValidation = {
     lowercase: true,
     trim: true,
     pattern: /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/
+  },
+  hasAccessToThemata: {
+    type: 'boolean',
+    required: false,
+    default: false
+  },
+  themataAccessGrantedAt: {
+    type: 'date',
+    required: false
+  },
+  themataAccessGrantedBy: {
+    type: 'string',
+    required: false,
+    trim: true
   }
 };
 
@@ -132,6 +146,16 @@ const validateStudent = (data, isUpdate = false) => {
     
     if (rules.type === 'array' && !Array.isArray(value)) {
       errors.push(`${field} must be an array`);
+      continue;
+    }
+    
+    if (rules.type === 'boolean' && typeof value !== 'boolean') {
+      errors.push(`${field} must be a boolean`);
+      continue;
+    }
+    
+    if (rules.type === 'date' && !(value instanceof Date) && typeof value !== 'string') {
+      errors.push(`${field} must be a date`);
       continue;
     }
     
@@ -183,11 +207,12 @@ class StudentModel {
       throw new Error(`Validation errors: ${errors.join(', ')}`);
     }
     
-    // Add virtual fields
+    // Add virtual fields and defaults
     const studentData = {
       ...data,
       registrationDate: new Date(),
-      lastLogin: null
+      lastLogin: null,
+      hasAccessToThemata: data.hasAccessToThemata !== undefined ? data.hasAccessToThemata : false
     };
     
     return await crud.create(COLLECTION_NAME, studentData);

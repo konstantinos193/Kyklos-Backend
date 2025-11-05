@@ -25,12 +25,19 @@ router.get('/', async (req, res) => {
     }
 
     const [totalUsers, totalBlogs, totalSubscribers, viewsAgg] = await Promise.all([
-      StudentModel.countDocuments({}).catch(() => 0),
-      BlogModel.countDocuments({ status: 'published' }).catch(() => 0),
-      NewsletterModel.countDocuments({ isActive: true }).catch(() => 0),
-      BlogModel.aggregate([
-        { $group: { _id: null, totalViews: { $sum: { $ifNull: ['$views', 0] } } } }
-      ]).catch(() => [{ totalViews: 0 }])
+      StudentModel.count({}).catch(() => 0),
+      BlogModel.count({ status: 'published' }).catch(() => 0),
+      NewsletterModel.count({ isActive: true }).catch(() => 0),
+      (async () => {
+        try {
+          const agg = await BlogModel.getCollection().aggregate([
+            { $group: { _id: null, totalViews: { $sum: { $ifNull: ['$views', 0] } } } }
+          ]).toArray();
+          return agg;
+        } catch (e) {
+          return [{ totalViews: 0 }];
+        }
+      })()
     ]);
 
     const totalViews = Array.isArray(viewsAgg) && viewsAgg.length > 0 ? (viewsAgg[0].totalViews || 0) : 0;

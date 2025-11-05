@@ -6,6 +6,7 @@ class UpstashRedis {
     this.baseUrl = process.env.UPSTASH_REDIS_REST_URL;
     this.token = process.env.UPSTASH_REDIS_REST_TOKEN;
     this.isConfigured = !!(this.baseUrl && this.token);
+    this._networkWarned = false;
   }
 
   async get(key) {
@@ -38,7 +39,16 @@ class UpstashRedis {
       
       return response.data;
     } catch (error) {
-      console.error('Redis GET error:', error.message);
+      const msg = (error && error.message) || '';
+      const isNetwork = msg.includes('ENOTFOUND') || msg.includes('ECONN') || msg.includes('ENET');
+      if (isNetwork) {
+        if (!this._networkWarned) {
+          console.warn('Redis GET network error detected; continuing without cache.');
+          this._networkWarned = true;
+        }
+      } else {
+        console.error('Redis GET error:', msg);
+      }
       return null;
     }
   }
@@ -55,7 +65,16 @@ class UpstashRedis {
         params: { ex: ttl }
       });
     } catch (error) {
-      console.error('Redis SET error:', error.message);
+      const msg = (error && error.message) || '';
+      const isNetwork = msg.includes('ENOTFOUND') || msg.includes('ECONN') || msg.includes('ENET');
+      if (isNetwork) {
+        if (!this._networkWarned) {
+          console.warn('Redis SET network error detected; continuing without cache.');
+          this._networkWarned = true;
+        }
+      } else {
+        console.error('Redis SET error:', msg);
+      }
     }
   }
 
@@ -69,7 +88,16 @@ class UpstashRedis {
         }
       });
     } catch (error) {
-      console.error('Redis DEL error:', error.message);
+      const msg = (error && error.message) || '';
+      const isNetwork = msg.includes('ENOTFOUND') || msg.includes('ECONN') || msg.includes('ENET');
+      if (isNetwork) {
+        if (!this._networkWarned) {
+          console.warn('Redis DEL network error detected; continuing without cache.');
+          this._networkWarned = true;
+        }
+      } else {
+        console.error('Redis DEL error:', msg);
+      }
     }
   }
 
@@ -100,7 +128,16 @@ class UpstashRedis {
         await Promise.all(deletePromises);
       }
     } catch (error) {
-      console.error('Redis DEL pattern error:', error.message);
+      const msg = (error && error.message) || '';
+      const isNetwork = msg.includes('ENOTFOUND') || msg.includes('ECONN') || msg.includes('ENET');
+      if (isNetwork) {
+        if (!this._networkWarned) {
+          console.warn('Redis DEL pattern network error detected; continuing without cache.');
+          this._networkWarned = true;
+        }
+      } else {
+        console.error('Redis DEL pattern error:', msg);
+      }
     }
   }
 }

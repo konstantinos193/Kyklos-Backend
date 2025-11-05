@@ -56,7 +56,7 @@ class KeyGenerator {
         const check = KeyGenerator.checksum(base);
         const uniqueKey = `${base}-${check}`;
 
-        const exists = await Student.findOne({ uniqueKey }).lean();
+        const exists = await Student.findOne({ uniqueKey });
         if (!exists) {
           return uniqueKey;
         }

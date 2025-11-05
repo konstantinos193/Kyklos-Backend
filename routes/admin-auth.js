@@ -169,7 +169,14 @@ router.get('/verify', (req, res) => {
 
   try {
     const jwt = require('jsonwebtoken');
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
+    if (!process.env.JWT_SECRET) {
+      console.error('JWT secret is not configured. Set JWT_SECRET in environment.');
+      return res.status(500).json({
+        success: false,
+        message: 'Server configuration error: JWT not configured'
+      });
+    }
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
     res.json({
       success: true,
