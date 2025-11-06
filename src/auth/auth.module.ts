@@ -19,7 +19,7 @@ import { StudentsModule } from '../students/students.module';
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtAuthGuard, AdminGuard, StudentJwtGuard],
-  exports: [AuthService, JwtAuthGuard, AdminGuard, StudentJwtGuard],
+  exports: [AuthService, JwtAuthGuard, AdminGuard, StudentJwtGuard, JwtModule],
 })
 export class AuthModule {}
 

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 import { CacheService } from '../cache/cache.service';
 import { NewsletterService } from '../newsletter/newsletter.service';
@@ -9,6 +9,7 @@ export class EmailService {
 
   constructor(
     private readonly cacheService: CacheService,
+    @Inject(forwardRef(() => NewsletterService))
     private readonly newsletterService: NewsletterService,
   ) {
     this.initializeTransporter();

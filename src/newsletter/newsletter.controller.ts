@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, UseGuards, Inject, forwardRef } from '@nestjs/common';
 import { NewsletterService } from './newsletter.service';
 import { EmailService } from '../email/email.service';
 import { SubscribeNewsletterDto } from './dto/subscribe-newsletter.dto';
@@ -11,6 +11,7 @@ import { AdminGuard } from '../auth/guards/admin.guard';
 export class NewsletterController {
   constructor(
     private readonly newsletterService: NewsletterService,
+    @Inject(forwardRef(() => EmailService))
     private readonly emailService: EmailService,
   ) {}
 
