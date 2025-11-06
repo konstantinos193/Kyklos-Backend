@@ -101,6 +101,15 @@ export class AdminAuthController {
 
     await this.adminService.updateLastLogin(admin._id);
 
+    // Check if JWT_SECRET is configured
+    if (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'your-super-secret-jwt-key-here') {
+      console.error('JWT_SECRET is not configured properly. Please set it in your .env file.');
+      return res.status(500).json({
+        success: false,
+        message: 'Server configuration error: JWT secret not configured',
+      });
+    }
+
     const token = this.jwtService.sign({
       id: admin._id,
       email: admin.email,
