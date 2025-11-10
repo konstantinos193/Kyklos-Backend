@@ -8,6 +8,7 @@ import { AuthModule } from './auth/auth.module';
 import { AdminModule } from './admin/admin.module';
 import { StudentsModule } from './students/students.module';
 import { BlogModule } from './blog/blog.module';
+import { NewsModule } from './news/news.module';
 import { NewsletterModule } from './newsletter/newsletter.module';
 import { ContactModule } from './contact/contact.module';
 import { ExamMaterialsModule } from './exam-materials/exam-materials.module';
@@ -31,6 +32,7 @@ import { EmailModule } from './email/email.module';
     AdminModule,
     StudentsModule,
     BlogModule,
+    NewsModule,
     NewsletterModule,
     ContactModule,
     ExamMaterialsModule,
