@@ -4,6 +4,8 @@ import { AdminService } from '../admin/admin.service';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { ObjectId } from 'mongodb';
 import { CreateArchiveFileDto } from './dto/create-archive-file.dto';
+import * as https from 'https';
+import * as http from 'http';
 
 @Injectable()
 export class PanhellenicArchiveService {
@@ -204,7 +206,20 @@ export class PanhellenicArchiveService {
     // Delete from Cloudinary
     if (file.publicId) {
       try {
-        await this.cloudinaryService.deleteFile(file.publicId);
+        // Determine resource type based on mimeType
+        // PDFs and documents are stored as 'raw', images/videos as 'auto'
+        const isPdf = file.mimeType === 'application/pdf';
+        const isDocument = [
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'application/vnd.ms-excel',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'application/vnd.ms-powerpoint',
+          'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        ].includes(file.mimeType);
+        
+        const resourceType = isPdf || isDocument ? 'raw' : 'auto';
+        await this.cloudinaryService.deleteFile(file.publicId, resourceType);
       } catch (error) {
         console.error('Error deleting file from Cloudinary:', error);
         // Continue with database deletion even if Cloudinary deletion fails
@@ -248,6 +263,71 @@ export class PanhellenicArchiveService {
       message: `Το αρχείο ${!file.isActive ? 'ενεργοποιήθηκε' : 'απενεργοποιήθηκε'} επιτυχώς`,
       data: result,
     };
+  }
+
+  /**
+   * Get file stream for proxying
+   * This is used to serve files that might not be directly accessible (e.g., old uploads)
+   */
+  async getFileStream(id: string): Promise<{ stream: NodeJS.ReadableStream; mimeType: string; fileName: string }> {
+    const collection = this.getCollection();
+    const objectId = this.toObjectId(id);
+    if (!objectId) {
+      throw new NotFoundException('Invalid file ID');
+    }
+
+    const file = await collection.findOne({ _id: objectId });
+    if (!file) {
+      throw new NotFoundException('Το αρχείο δεν βρέθηκε');
+    }
+
+    if (!file.publicId) {
+      throw new NotFoundException('Το αρχείο δεν έχει publicId');
+    }
+
+    // Determine resource type based on mimeType
+    const isPdf = file.mimeType === 'application/pdf';
+    const isDocument = [
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    ].includes(file.mimeType);
+    
+    const resourceType = isPdf || isDocument ? 'raw' : 'image';
+
+    // Get the Cloudinary URL
+    const cloudinaryUrl = this.cloudinaryService.getFileUrl(file.publicId, resourceType);
+
+    // Return a promise that resolves to a stream
+    return new Promise((resolve, reject) => {
+      const urlObj = new URL(cloudinaryUrl);
+      const client = urlObj.protocol === 'https:' ? https : http;
+
+      const req = client.get(cloudinaryUrl, (res) => {
+        if (res.statusCode === 401 || res.statusCode === 403) {
+          reject(new ForbiddenException('Το αρχείο δεν είναι προσβάσιμο. Παρακαλώ ανεβάστε το ξανά.'));
+          return;
+        }
+
+        if (res.statusCode !== 200) {
+          reject(new NotFoundException(`Failed to fetch file: ${res.statusCode}`));
+          return;
+        }
+
+        resolve({
+          stream: res,
+          mimeType: file.mimeType || 'application/pdf',
+          fileName: file.fileName || 'file.pdf',
+        });
+      });
+
+      req.on('error', (error) => {
+        reject(new NotFoundException(`Failed to fetch file: ${error.message}`));
+      });
+    });
   }
 }
 

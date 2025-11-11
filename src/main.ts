@@ -52,8 +52,19 @@ async function bootstrap() {
   );
 
   // CORS configuration
+  const allowedOrigin = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: (origin, callback) => {
+      // Normalize origin by removing trailing slash
+      const normalizedOrigin = origin ? origin.replace(/\/$/, '') : origin;
+      // Check if the normalized origin matches the allowed origin
+      if (!origin || normalizedOrigin === allowedOrigin) {
+        // Return the normalized origin (or the original if no origin) to match browser's request
+        callback(null, normalizedOrigin || origin || allowedOrigin);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control'],
@@ -92,8 +103,7 @@ async function bootstrap() {
         res.removeHeader('X-Frame-Options');
         res.removeHeader('x-frame-options');
         // Add CORS headers for PDF files to allow cross-origin requests
-        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-        res.setHeader('Access-Control-Allow-Origin', frontendUrl);
+        res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
         res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
         res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
       }

@@ -4,7 +4,7 @@ import { DatabaseService } from '../database/database.service';
 @Injectable()
 export class AdminSettingsService {
   private readonly COLLECTION_NAME = 'settings';
-  private readonly SETTINGS_ID = 'app_settings'; // Single document ID for settings
+  private readonly SETTINGS_KEY = 'app_settings'; // Single document key for settings
 
   constructor(private readonly databaseService: DatabaseService) {}
 
@@ -17,15 +17,15 @@ export class AdminSettingsService {
    */
   async getSettings() {
     const collection = this.getCollection();
-    const settings = await collection.findOne({ _id: this.SETTINGS_ID });
+    const settings = await collection.findOne({ key: this.SETTINGS_KEY });
 
     if (!settings) {
       // Return default settings if none exist
       return this.getDefaultSettings();
     }
 
-    // Remove _id from response and return settings data
-    const { _id, ...settingsData } = settings;
+    // Remove _id and key from response and return settings data
+    const { _id, key, ...settingsData } = settings;
     return settingsData;
   }
 
@@ -45,11 +45,11 @@ export class AdminSettingsService {
 
     // Upsert settings document
     await collection.updateOne(
-      { _id: this.SETTINGS_ID },
+      { key: this.SETTINGS_KEY },
       {
         $set: mergedSettings,
         $setOnInsert: {
-          _id: this.SETTINGS_ID,
+          key: this.SETTINGS_KEY,
           createdAt: new Date(),
         },
       },
