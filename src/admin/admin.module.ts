@@ -6,6 +6,7 @@ import { AdminStudentsController } from './admin-students.controller';
 import { AdminStatsController } from './admin-stats.controller';
 import { AdminSettingsController } from './admin-settings.controller';
 import { AdminTeachersController } from './admin-teachers.controller';
+import { AdminManagementController } from './admin-management.controller';
 import { AdminService } from './admin.service';
 import { StudentsModule } from '../students/students.module';
 import { AuthModule } from '../auth/auth.module';
@@ -29,6 +30,7 @@ import { AuthModule } from '../auth/auth.module';
     AdminStatsController,
     AdminSettingsController,
     AdminTeachersController,
+    AdminManagementController,
   ],
   providers: [AdminService],
   exports: [AdminService],

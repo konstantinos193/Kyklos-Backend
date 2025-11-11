@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Query } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Query, HttpException, HttpStatus } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
 import { StudentService } from '../students/students.service';
@@ -26,7 +26,25 @@ export class AdminStudentsController {
 
   @Post()
   async create(@Body() body: any) {
-    return this.studentService.create(body);
+    try {
+      const student = await this.studentService.create(body);
+      return {
+        success: true,
+        data: student,
+        message: 'Student created successfully',
+      };
+    } catch (error: any) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        {
+          success: false,
+          message: error.message || 'Failed to create student',
+        },
+        error.status || HttpStatus.BAD_REQUEST,
+      );
+    }
   }
 
   @Put(':id')

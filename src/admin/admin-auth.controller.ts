@@ -10,6 +10,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { Response } from 'express';
+import { ConfigService } from '@nestjs/config';
 import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
@@ -21,6 +22,7 @@ export class AdminAuthController {
   constructor(
     private readonly adminService: AdminService,
     private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
   ) {}
 
   @Post('create')
@@ -101,8 +103,16 @@ export class AdminAuthController {
 
     await this.adminService.updateLastLogin(admin._id);
 
-    // Check if JWT_SECRET is configured
-    if (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'your-super-secret-jwt-key-here') {
+    // Check if JWT_SECRET is configured using ConfigService
+    const jwtSecret = this.configService.get<string>('JWT_SECRET');
+    const envJwtSecret = process.env.JWT_SECRET;
+    
+    console.log('JWT_SECRET from ConfigService:', jwtSecret ? 'EXISTS' : 'MISSING', jwtSecret?.substring(0, 20) + '...');
+    console.log('JWT_SECRET from process.env:', envJwtSecret ? 'EXISTS' : 'MISSING', envJwtSecret?.substring(0, 20) + '...');
+    
+    const finalJwtSecret = jwtSecret || envJwtSecret;
+    
+    if (!finalJwtSecret || finalJwtSecret === 'your-super-secret-jwt-key-here' || finalJwtSecret.trim() === '') {
       console.error('JWT_SECRET is not configured properly. Please set it in your .env file.');
       return res.status(500).json({
         success: false,
@@ -110,6 +120,7 @@ export class AdminAuthController {
       });
     }
 
+    // JwtModule is already configured with the secret, so we can use it directly
     const token = this.jwtService.sign({
       id: admin._id,
       email: admin.email,

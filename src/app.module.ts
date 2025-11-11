@@ -15,12 +15,15 @@ import { ExamMaterialsModule } from './exam-materials/exam-materials.module';
 import { TeacherPermissionsModule } from './teacher-permissions/teacher-permissions.module';
 import { HealthModule } from './health/health.module';
 import { EmailModule } from './email/email.module';
+import { PanhellenicArchiveModule } from './panhellenic-archive/panhellenic-archive.module';
+import { ExercisesModule } from './exercises/exercises.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '.env',
+      envFilePath: ['.env', '../.env'],
+      expandVariables: true,
     }),
     MongooseModule.forRoot(process.env.MONGODB_URI || '', {
       dbName: process.env.MONGODB_DB_NAME || 'kyklos_frontistirio',
@@ -38,6 +41,8 @@ import { EmailModule } from './email/email.module';
     ExamMaterialsModule,
     TeacherPermissionsModule,
     HealthModule,
+    PanhellenicArchiveModule,
+    ExercisesModule,
   ],
   controllers: [AppController],
 })

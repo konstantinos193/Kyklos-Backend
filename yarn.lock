@@ -1283,6 +1283,13 @@
   resolved "https://registry.yarnpkg.com/@types/ms/-/ms-2.1.0.tgz#052aa67a48eccc4309d7f0191b7e41434b90bb78"
   integrity sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA==
 
+"@types/multer@^2.0.0":
+  version "2.0.0"
+  resolved "https://registry.yarnpkg.com/@types/multer/-/multer-2.0.0.tgz#db5f82136b619f5ce4d923b00034eb466c13acf4"
+  integrity sha512-C3Z9v9Evij2yST3RSBktxP9STm6OdMc5uR1xF1SGr98uv8dUlAL2hqwrZ3GVB3uyMyiegnscEK6PGtYvNrjTjw==
+  dependencies:
+    "@types/express" "*"
+
 "@types/node@*", "@types/node@^24.10.0":
   version "24.10.0"
   resolved "https://registry.yarnpkg.com/@types/node/-/node-24.10.0.tgz#6b79086b0dfc54e775a34ba8114dcc4e0221f31f"
@@ -2119,7 +2126,7 @@ clone@^1.0.2:
   resolved "https://registry.yarnpkg.com/clone/-/clone-1.0.4.tgz#da309cc263df15994c688ca902179ca3c7cd7c7e"
   integrity sha512-JQHZ2QMW6l3aH/j6xCqQThY/9OH4D/9ls34cgkUBiEeocRTU04tHfKPBsUK1PqZCUQM7GiA0IIXJSuXHI64Kbg==
 
-cloudinary@^2.7.0:
+cloudinary@^2.8.0:
   version "2.8.0"
   resolved "https://registry.yarnpkg.com/cloudinary/-/cloudinary-2.8.0.tgz#9b191995bc2d72d4487062251e95d0b88dbba1cb"
   integrity sha512-s7frvR0HnQXeJsQSIsbLa/I09IMb1lOnVLEDH5b5E53WTiCYgrNNOBGV/i/nLHwrcEOUkqjfSwP1+enXWNYmdw==

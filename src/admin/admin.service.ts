@@ -49,5 +49,56 @@ export class AdminService {
     const collection = this.getCollection();
     return await collection.countDocuments(filter);
   }
+
+  async findAll(filter: any = {}, options: { skip?: number; limit?: number; sort?: any } = {}) {
+    const collection = this.getCollection();
+    let query = collection.find(filter);
+    
+    if (options.sort) {
+      query = query.sort(options.sort);
+    }
+    
+    if (options.skip) {
+      query = query.skip(options.skip);
+    }
+    
+    if (options.limit) {
+      query = query.limit(options.limit);
+    }
+    
+    const admins = await query.toArray();
+    // Remove password from results
+    return admins.map(admin => {
+      const { password, ...adminWithoutPassword } = admin;
+      return adminWithoutPassword;
+    });
+  }
+
+  async update(id: string | ObjectId, data: any) {
+    const collection = this.getCollection();
+    const objectId = this.toObjectId(id);
+    if (!objectId) throw new Error('Invalid ID');
+    
+    const updateData = { ...data, updatedAt: new Date() };
+    const result = await collection.updateOne(
+      { _id: objectId },
+      { $set: updateData }
+    );
+    
+    if (result.matchedCount === 0) {
+      return null;
+    }
+    
+    return await this.findById(id);
+  }
+
+  async delete(id: string | ObjectId) {
+    const collection = this.getCollection();
+    const objectId = this.toObjectId(id);
+    if (!objectId) throw new Error('Invalid ID');
+    
+    const result = await collection.deleteOne({ _id: objectId });
+    return result.deletedCount > 0;
+  }
 }
 

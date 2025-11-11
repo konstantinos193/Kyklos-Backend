@@ -25,12 +25,73 @@ export class StudentService {
     return ObjectId.isValid(id);
   }
 
+  /**
+   * Generate a unique student key in format: STU-YYYY-XXXXXX-X
+   * Where YYYY is the year, XXXXXX is 6 random alphanumeric characters, and X is a random letter
+   */
+  private generateUniqueKey(): string {
+    const year = new Date().getFullYear();
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    
+    // Generate 6 random alphanumeric characters
+    let randomPart = '';
+    for (let i = 0; i < 6; i++) {
+      randomPart += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    
+    // Generate a random letter suffix
+    const suffix = letters.charAt(Math.floor(Math.random() * letters.length));
+    
+    return `STU-${year}-${randomPart}-${suffix}`;
+  }
+
+  /**
+   * Generate a unique key that doesn't exist in the database
+   */
+  private async generateUniqueKeyWithCheck(): Promise<string> {
+    const collection = this.getCollection();
+    let attempts = 0;
+    const maxAttempts = 100;
+    
+    while (attempts < maxAttempts) {
+      const key = this.generateUniqueKey();
+      const existing = await collection.findOne({ uniqueKey: key });
+      
+      if (!existing) {
+        return key;
+      }
+      
+      attempts++;
+    }
+    
+    // If we couldn't generate a unique key after max attempts, throw an error
+    throw new BadRequestException('Unable to generate unique student key. Please try again.');
+  }
+
   async create(data: any) {
+    // Generate unique key if not provided
+    let uniqueKey = data.uniqueKey;
+    if (!uniqueKey || uniqueKey.trim() === '') {
+      uniqueKey = await this.generateUniqueKeyWithCheck();
+    } else {
+      // Check if provided key is unique
+      const collection = this.getCollection();
+      const existing = await collection.findOne({ uniqueKey: uniqueKey.toUpperCase() });
+      if (existing) {
+        throw new BadRequestException(`Student key ${uniqueKey} already exists`);
+      }
+      uniqueKey = uniqueKey.toUpperCase();
+    }
+
     const studentData = {
       ...data,
+      uniqueKey,
       registrationDate: new Date(),
       lastLogin: null,
       hasAccessToThemata: data.hasAccessToThemata !== undefined ? data.hasAccessToThemata : false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
 
     const collection = this.getCollection();
