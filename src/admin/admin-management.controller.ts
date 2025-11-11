@@ -130,20 +130,23 @@ export class AdminManagementController {
 
       const hashedPassword = await bcrypt.hash(password, 10);
       
-      // Default permissions for teachers
+      // All teachers are automatically super admins with full permissions
+      const finalRole = role === 'teacher' ? 'super_admin' : role;
+      
+      // Full permissions for super admins (teachers)
       const defaultPermissions = permissions || {
-        students: { create: false, read: true, update: false, delete: false },
-        blog: { create: false, read: true, update: false, delete: false },
-        newsletter: { create: false, read: true, update: false, delete: false },
-        settings: { read: false, update: false },
-        archive: { read: true, upload: false, delete: false },
+        students: { create: true, read: true, update: true, delete: true },
+        blog: { create: true, read: true, update: true, delete: true },
+        newsletter: { create: true, read: true, update: true, delete: true },
+        settings: { read: true, update: true },
+        archive: { read: true, upload: true, delete: true },
       };
 
       const adminData = {
         email: email.toLowerCase(),
         password: hashedPassword,
         name,
-        role,
+        role: finalRole,
         isActive,
         permissions: defaultPermissions,
         specialization: specialization || null,

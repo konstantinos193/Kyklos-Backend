@@ -175,5 +175,85 @@ export class AdminAuthController {
       },
     };
   }
+
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  async refresh(@Request() req: any, @Res() res: Response) {
+    try {
+      // Extract token from header
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({
+          success: false,
+          message: 'No token provided',
+        });
+      }
+
+      const token = authHeader.substring(7);
+      
+      // Try to verify token, but allow expired tokens for refresh
+      let decoded: any;
+      try {
+        decoded = await this.jwtService.verifyAsync(token);
+      } catch (error: any) {
+        // If token is expired, try to decode without verification
+        if (error.name === 'TokenExpiredError') {
+          decoded = this.jwtService.decode(token) as any;
+          if (!decoded) {
+            return res.status(401).json({
+              success: false,
+              message: 'Invalid token',
+            });
+          }
+        } else {
+          return res.status(401).json({
+            success: false,
+            message: 'Invalid token',
+          });
+        }
+      }
+
+      // Verify admin still exists and is active
+      const adminData = await this.adminService.findById(decoded.id);
+      if (!adminData || !adminData.isActive) {
+        return res.status(401).json({
+          success: false,
+          message: 'Admin account is not active',
+        });
+      }
+
+      // Generate new token
+      const newToken = this.jwtService.sign({
+        id: adminData._id,
+        email: adminData.email,
+        name: adminData.name,
+        role: adminData.role,
+      });
+
+      res.cookie('adminToken', newToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 24 * 60 * 60 * 1000,
+      });
+
+      return res.json({
+        success: true,
+        message: 'Token refreshed successfully',
+        token: newToken,
+        admin: {
+          _id: adminData._id,
+          email: adminData.email,
+          name: adminData.name,
+          role: adminData.role,
+        },
+      });
+    } catch (error) {
+      return res.status(401).json({
+        success: false,
+        message: 'Failed to refresh token',
+      });
+    }
+  }
 }
 

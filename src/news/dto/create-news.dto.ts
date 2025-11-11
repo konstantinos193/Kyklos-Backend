@@ -4,6 +4,8 @@ export enum NewsType {
   ANNOUNCEMENT = 'announcement',
   EVENT = 'event',
   SEMINAR = 'seminar',
+  EDUCATION = 'education',
+  UNIVERSITIES = 'universities',
 }
 
 export class CreateNewsDto {

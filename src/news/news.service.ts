@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { CacheService } from '../cache/cache.service';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { ObjectId } from 'mongodb';
 import { NewsType } from './dto/create-news.dto';
 
@@ -16,6 +17,7 @@ export class NewsService {
   constructor(
     private readonly databaseService: DatabaseService,
     private readonly cacheService: CacheService,
+    private readonly cloudinaryService: CloudinaryService,
   ) {}
 
   private getCollection() {
@@ -322,6 +324,99 @@ export class NewsService {
     if (!objectId) return;
 
     await collection.updateOne({ _id: objectId }, { $inc: { views: 1 } });
+  }
+
+  async addFiles(id: string | ObjectId, files: Express.Multer.File[]) {
+    const post = await this.findById(id.toString());
+    if (!post || !post.success) {
+      throw new NotFoundException('News post not found');
+    }
+
+    const uploadedFiles: Array<{
+      url: string;
+      secureUrl: string;
+      publicId: string;
+      fileName: string;
+      fileType: string;
+      fileSize: number;
+    }> = [];
+
+    if (files && files.length > 0) {
+      for (const file of files) {
+        try {
+          const cloudinaryResult = await this.cloudinaryService.uploadFile(
+            file,
+            'news',
+          );
+          uploadedFiles.push({
+            url: cloudinaryResult.url,
+            secureUrl: cloudinaryResult.secureUrl,
+            publicId: cloudinaryResult.publicId,
+            fileName: file.originalname,
+            fileType: file.mimetype,
+            fileSize: file.size,
+          });
+        } catch (error) {
+          console.error('Error uploading file:', error);
+          throw new BadRequestException(`Failed to upload file: ${file.originalname}`);
+        }
+      }
+    }
+
+    const collection = this.getCollection();
+    const objectId = this.toObjectId(id);
+    await collection.updateOne(
+      { _id: objectId },
+      {
+        $push: { attachments: { $each: uploadedFiles } } as any,
+        $set: { updatedAt: new Date() },
+      },
+    );
+
+    // Clear related caches
+    await this.cacheService.delPattern('news:list:*');
+    await this.cacheService.delPattern('news:type:*');
+    await this.cacheService.del(`news:single:${id.toString()}`);
+    await this.cacheService.del('news:types');
+
+    return await this.findById(id.toString());
+  }
+
+  async deleteFile(id: string | ObjectId, filePublicId: string) {
+    const post = await this.findById(id.toString());
+    if (!post || !post.success) {
+      throw new NotFoundException('News post not found');
+    }
+
+    const postData = post.data as any;
+    const file = postData.attachments?.find((f: any) => f.publicId === filePublicId);
+    if (!file) {
+      throw new NotFoundException('File not found');
+    }
+
+    try {
+      await this.cloudinaryService.deleteFile(filePublicId);
+    } catch (error) {
+      console.error('Error deleting file from Cloudinary:', error);
+    }
+
+    const collection = this.getCollection();
+    const objectId = this.toObjectId(id);
+    await collection.updateOne(
+      { _id: objectId },
+      {
+        $pull: { attachments: { publicId: filePublicId } } as any,
+        $set: { updatedAt: new Date() },
+      },
+    );
+
+    // Clear related caches
+    await this.cacheService.delPattern('news:list:*');
+    await this.cacheService.delPattern('news:type:*');
+    await this.cacheService.del(`news:single:${id.toString()}`);
+    await this.cacheService.del('news:types');
+
+    return await this.findById(id.toString());
   }
 }
 

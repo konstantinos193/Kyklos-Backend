@@ -37,5 +37,15 @@ export class AuthController {
       message: 'Logout successful',
     };
   }
+
+  @Post('student-refresh')
+  @HttpCode(HttpStatus.OK)
+  async refreshStudent(@Headers('authorization') authHeader: string) {
+    const token = authHeader?.replace('Bearer ', '');
+    if (!token) {
+      throw new Error('No token provided');
+    }
+    return this.authService.refreshStudentToken(token);
+  }
 }
 

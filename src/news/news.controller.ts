@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Put, Delete, Param, Query, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Query, Body, UseGuards, UseInterceptors, UploadedFiles, ParseFilePipe, MaxFileSizeValidator, FileTypeValidator } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import { NewsService } from './news.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
@@ -46,6 +47,16 @@ export class NewsController {
     return this.newsService.getByType(NewsType.SEMINAR);
   }
 
+  @Get('education')
+  async getEducation() {
+    return this.newsService.getByType(NewsType.EDUCATION);
+  }
+
+  @Get('universities')
+  async getUniversities() {
+    return this.newsService.getByType(NewsType.UNIVERSITIES);
+  }
+
   @Get(':id')
   async findOne(@Param('id') id: string) {
     return this.newsService.findById(id);
@@ -67,6 +78,36 @@ export class NewsController {
   @UseGuards(JwtAuthGuard, AdminGuard)
   async delete(@Param('id') id: string) {
     return this.newsService.delete(id);
+  }
+
+  @Post(':id/files')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @UseInterceptors(FilesInterceptor('files', 10))
+  async addFiles(
+    @Param('id') id: string,
+    @UploadedFiles(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 50 * 1024 * 1024 }), // 50MB
+          new FileTypeValidator({
+            fileType: /(pdf|png|jpeg|jpg|gif|doc|docx|xls|xlsx|ppt|pptx|zip|rar)/,
+          }),
+        ],
+        fileIsRequired: false,
+      }),
+    )
+    files: Express.Multer.File[],
+  ) {
+    return this.newsService.addFiles(id, files || []);
+  }
+
+  @Delete(':id/files/:filePublicId')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async deleteFile(
+    @Param('id') id: string,
+    @Param('filePublicId') filePublicId: string,
+  ) {
+    return this.newsService.deleteFile(id, filePublicId);
   }
 }
 

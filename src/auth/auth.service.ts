@@ -127,5 +127,78 @@ export class AuthService {
       throw new UnauthorizedException('Invalid or expired token');
     }
   }
+
+  async refreshStudentToken(token: string) {
+    try {
+      // Try to decode token even if expired (for refresh purposes)
+      let decoded: any;
+      try {
+        decoded = await this.jwtService.verifyAsync(token);
+      } catch (error: any) {
+        // If token is expired, try to decode without verification
+        // This allows refreshing expired tokens
+        if (error.name === 'TokenExpiredError') {
+          decoded = this.jwtService.decode(token) as any;
+          if (!decoded) {
+            throw new UnauthorizedException('Invalid token');
+          }
+        } else {
+          throw error;
+        }
+      }
+
+      if (decoded.type !== 'student') {
+        throw new UnauthorizedException('Invalid token type');
+      }
+
+      const student = await this.studentService.findById(decoded.studentId);
+
+      if (!student) {
+        throw new UnauthorizedException('Student not found');
+      }
+
+      if (student.status !== 'active') {
+        throw new UnauthorizedException('Account is not active');
+      }
+
+      // Generate new token
+      const newToken = this.jwtService.sign(
+        {
+          studentId: student._id,
+          uniqueKey: student.uniqueKey,
+          studentCode: student.studentId || null,
+          type: 'student',
+        },
+        {
+          expiresIn: '7d',
+        },
+      );
+
+      const studentData = {
+        _id: student._id,
+        uniqueKey: student.uniqueKey,
+        firstName: student.firstName,
+        lastName: student.lastName,
+        email: student.email,
+        phone: student.phone,
+        grade: student.grade,
+        school: student.school,
+        subjects: student.subjects,
+        status: student.status,
+        registrationDate: student.registrationDate,
+        lastLogin: student.lastLogin,
+        hasAccessToThemata: student.hasAccessToThemata || false,
+      };
+
+      return {
+        success: true,
+        message: 'Token refreshed successfully',
+        student: studentData,
+        token: newToken,
+      };
+    } catch (error) {
+      throw new UnauthorizedException('Failed to refresh token');
+    }
+  }
 }
 
