@@ -16,7 +16,9 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "create-admin": "node create-admin-simple.js"
+    "create-admin": "node create-admin-simple.js",
+    "reset-db": "node scripts/reset-database.js",
+    "reset-cloudinary": "node scripts/reset-cloudinary.js"
   },
   "keywords": [
     "api",
