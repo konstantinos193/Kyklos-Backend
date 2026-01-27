@@ -52,22 +52,38 @@ async function bootstrap() {
   );
 
   // CORS configuration
-  const allowedOrigin = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+  const allowedOrigins = [
+    process.env.FRONTEND_URL?.replace(/\/$/, ''),
+    'https://kyklosedu.gr',
+    'http://localhost:3000',
+  ].filter(Boolean); // Remove undefined/null values
+
   app.enableCors({
     origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) {
+        return callback(null, true);
+      }
+
       // Normalize origin by removing trailing slash
-      const normalizedOrigin = origin ? origin.replace(/\/$/, '') : origin;
-      // Check if the normalized origin matches the allowed origin
-      if (!origin || normalizedOrigin === allowedOrigin) {
-        // Return the normalized origin (or the original if no origin) to match browser's request
-        callback(null, normalizedOrigin || origin || allowedOrigin);
+      const normalizedOrigin = origin.replace(/\/$/, '');
+      
+      // Check if the normalized origin matches any allowed origin
+      const isAllowed = allowedOrigins.some(allowed => {
+        const normalizedAllowed = allowed.replace(/\/$/, '');
+        return normalizedOrigin === normalizedAllowed;
+      });
+
+      if (isAllowed) {
+        callback(null, normalizedOrigin);
       } else {
+        console.warn(`CORS blocked origin: ${origin}`);
         callback(new Error('Not allowed by CORS'));
       }
     },
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control', 'X-Requested-With'],
     exposedHeaders: ['Content-Type', 'Content-Disposition'],
   });
 
@@ -103,7 +119,9 @@ async function bootstrap() {
         res.removeHeader('X-Frame-Options');
         res.removeHeader('x-frame-options');
         // Add CORS headers for PDF files to allow cross-origin requests
-        res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+        // Use the first allowed origin or allow all if in development
+        const pdfOrigin = allowedOrigins[0] || '*';
+        res.setHeader('Access-Control-Allow-Origin', pdfOrigin);
         res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
         res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
       }
