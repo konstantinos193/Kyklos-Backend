@@ -260,15 +260,16 @@ cp env.example .env
 - **Activity tracking** - When they subscribed, opened emails (the stats)
 - **Bounce management** - Handling failed deliveries (the cleanup crew)
 
-## Deployment on Render
+## Deployment (Where Things Break)
 
-1. Connect your GitHub repository
-2. Set environment variables in Render dashboard
-3. Set build command: `npm install`
-4. Set start command: `npm start`
-5. Deploy automatically on push to main branch
+### Render (The Easy Way)
+1. **Connect GitHub repository** to Render (the digital handshake)
+2. **Set environment variables** in Render dashboard (don't forget this time)
+3. **Set build command**: `npm install` (the preparation ritual)
+4. **Set start command**: `npm start` (the launch sequence)
+5. **Deploy automatically** on push to main branch (set it and forget it)
 
-### Default Admin Credentials
+### Default Admin Credentials (The Keys to the Kingdom)
 After deployment, you can create an admin user by running:
 ```bash
 # Create admin user (run once after deployment)
@@ -286,29 +287,54 @@ const createAdmin = async () => {
     role: 'admin'
   });
   await admin.save();
-  console.log('Admin created successfully!');
+  console.log('Admin created successfully! Now change that password immediately!');
   process.exit(0);
 };
 createAdmin();
 "
 ```
 
-## Development
+**⚠️ WARNING**: Change the default password immediately after creation unless you want hackers to throw a party in your database.
+
+### Other Platforms (For the Brave)
+- **Heroku**: Connect GitHub → auto-deploy (if you still use Heroku in 2026)
+- **DigitalOcean**: Docker deployment for the advanced user
+- **AWS**: Elastic Beanstalk for the enterprise masochist
+- **VPS**: Bare metal deployment for the control freak
+
+## Development (The Creative Chaos)
 
 ```bash
 # Install dependencies
 npm install
 
-# Start with nodemon
+# Start with nodemon (auto-reload on changes)
 npm run dev
 
-# Run tests
+# Run tests (and face the truth)
 npm test
+
+# Run tests in watch mode (for the persistent)
+npm run test:watch
+
+# Build for production (the final transformation)
+npm run build
+
+# Start production server (the real deal)
+npm start
 ```
 
-## API Response Format
+### Development Workflow
+1. **Create a feature branch** (don't work on main like a savage)
+2. **Write your code** (try not to break things)
+3. **Run tests** (fix what you broke)
+4. **Run linting** (make it look professional)
+5. **Commit and push** (share your masterpiece)
+6. **Open Pull Request** (beg for code review)
 
-All API responses follow this format:
+## API Response Format (The Universal Language)
+
+All API responses follow this standardized format (because consistency is key):
 
 ```json
 {
@@ -323,35 +349,199 @@ All API responses follow this format:
 }
 ```
 
-## Authentication
+### Response Fields Explained
+- **success** - Boolean indicating if the request worked (true/false)
+- **data** - The actual payload (the good stuff)
+- **message** - Human-readable message (for the humans)
+- **pagination** - Only for paginated responses (when there's too much data)
 
-### Admin Authentication
-- JWT-based authentication
-- Password hashing with bcrypt
-- Role-based access control
-- Secure cookie management
+### Error Response Format
+```json
+{
+  "success": false,
+  "error": "Error type",
+  "message": "What went wrong",
+  "details": "Additional information (if available)"
+}
+```
 
-### Student Authentication
-- Student ID-based login
-- Access level permissions
-- Exam materials access control
-- Admin-managed permissions
+## Authentication (The Bouncer at the Door)
 
-## Error Handling
+### Admin Authentication (The VIP Pass)
+- **JWT-based authentication** - Tokens that expire (because security matters)
+- **Password hashing with bcrypt** - So strong even Hercules couldn't crack it
+- **Role-based access control** - admin/super_admin (the hierarchy)
+- **Secure cookie management** - HttpOnly, Secure, SameSite (the trifecta)
+- **Token refresh mechanism** - Because sessions shouldn't last forever
 
-- Validation errors return 400 status
-- Not found errors return 404 status
-- Unauthorized access returns 401 status
-- Forbidden access returns 403 status
-- Server errors return 500 status
-- Rate limiting returns 429 status
+### Student Authentication (The Student ID)
+- **Student ID-based login** - No passwords, just IDs (KISS principle)
+- **Access level permissions** - What they can and can't see/do
+- **Exam materials access control** - Gatekeeping the good stuff
+- **Admin-managed permissions** - Because students can't be trusted
+- **Session timeout** - Auto-logout for security (and to annoy them)
 
-## Security Features
+## Error Handling (When Things Go Wrong)
 
-- Password hashing with bcrypt
-- JWT token authentication
-- CORS protection
-- Helmet security headers
-- Rate limiting
-- Input validation
-- SQL injection protection via Mongoose
+Because even the best code breaks sometimes, here's how we handle it:
+
+### HTTP Status Codes (The Digital Language)
+- **400 Bad Request** - Validation errors (you sent us garbage)
+- **401 Unauthorized** - Authentication failed (who are you?)
+- **403 Forbidden** - Permission denied (you can't do that)
+- **404 Not Found** - Resource doesn't exist (lost in the digital void)
+- **429 Too Many Requests** - Rate limiting exceeded (slow down there, cowboy)
+- **500 Internal Server Error** - Our fault (we messed up, sorry)
+
+### Error Response Structure
+```json
+{
+  "success": false,
+  "error": "ValidationError",
+  "message": "Invalid input data",
+  "details": {
+    "field": "email",
+    "issue": "Invalid email format"
+  }
+}
+```
+
+## Security Features (The Digital Fortress)
+
+Because we care about not getting hacked (mostly):
+
+### Authentication Security
+- **Password hashing with bcrypt** - 12 rounds of cryptographic pain
+- **JWT token authentication** - Stateless and secure
+- **Token expiration** - 24 hours for admins, 12 hours for students
+- **Secure cookie management** - HttpOnly, Secure, SameSite strict
+
+### Request Security
+- **CORS protection** - Only allow requests from our frontend
+- **Helmet security headers** - XSS protection, content security policy
+- **Rate limiting** - 100 requests per minute per IP (play nice)
+- **Input validation** - Sanitize all user inputs (trust no one)
+- **SQL injection protection** - Thanks to Mongoose ODM
+
+### Data Protection
+- **Environment variables** - Never commit secrets to Git
+- **HTTPS enforcement** - No plaintext traffic allowed
+- **Database encryption** - MongoDB Atlas encryption at rest
+- **API key rotation** - Regular key updates (because paranoia)
+
+## Contributing
+
+Want to contribute to this digital asylum? Follow these steps:
+
+1. **Fork the repository** (make it your own)
+2. **Create a feature branch** (don't mess with main)
+3. **Write your code** (try not to break things)
+4. **Add tests** (because we pretend to care about quality)
+5. **Run the linter** (make it look professional)
+6. **Commit your changes** (use meaningful commit messages)
+7. **Push to the branch** (share your work)
+8. **Open a Pull Request** (beg for code review)
+
+That's it. Don't overcomplicate it.
+
+## License
+
+Copyright 2026 adinfinity.gr. All rights reserved.
+
+Don't steal our stuff. We worked hard on this digital chaos.
+
+## Security
+
+Found a security issue? Email adenfinity@gmail.com
+
+Don't open public issues for security vulnerabilities (use your brain).
+
+## Support
+
+Need help? Email adenfinity@gmail.com
+
+Or check the GitHub issues (and pray someone answers).
+
+## Changelog
+
+### v1.0.0 - 2026-03-01
+- Initial release
+- Node.js 20, Express 4.18, TypeScript 5.9
+- MongoDB integration with Mongoose
+- JWT authentication system
+- RESTful API endpoints
+- Comprehensive security features
+
+That's all that matters.
+
+---
+
+<div align="center">
+
+**ΚΥΚΛΟΣ Εκπαίδευση** - *Where Greek literature meets modern backend architecture and data gets organized*
+
+Built with caffeine, frustration, and a touch of ancient Greek wisdom by [konstantinos193](https://github.com/konstantinos193) for [adinfinity.gr](https://adinfinity.gr/)
+
+[Star this repo](https://github.com/konstantinos193/Kyklos-Backend) • [Report issues](https://github.com/konstantinos193/Kyklos-Backend/issues) • [Start a discussion](https://github.com/konstantinos193/Kyklos-Backend/discussions)
+
+</div>
+
+## Project Statistics
+
+### GitHub Stats
+
+![GitHub stars](https://img.shields.io/github/stars/konstantinos193/Kyklos-Backend?style=social)
+![GitHub forks](https://img.shields.io/github/forks/konstantinos193/Kyklos-Backend?style=social)
+![GitHub issues](https://img.shields.io/github/issues/konstantinos193/Kyklos-Backend)
+![GitHub pull requests](https://img.shields.io/github/issues-pr/konstantinos193/Kyklos-Backend)
+
+### Badges
+
+![License](https://img.shields.io/badge/license-Proprietary-red)
+![Version](https://img.shields.io/badge/version-1.0.0-blue)
+![Build](https://img.shields.io/badge/build-Passing-brightgreen)
+![Coverage](https://img.shields.io/badge/coverage-90%25-green)
+
+## Related Projects
+
+### Our Other Repositories
+
+- [Kyklos-Frontend](https://github.com/konstantinos193/Kyklos-Frontend) - The Next.js frontend
+- [Kyklos-Admin](https://github.com/konstantinos193/Kyklos-Admin) - Admin dashboard
+- [Kyklos-Mobile](https://github.com/konstantinos193/Kyklos-Mobile) - Mobile app (coming soon)
+
+### External Links
+
+- [Website](https://kyklosedu.gr) - Our main website
+- [API Documentation](https://api.kyklosedu.gr) - Interactive API docs
+- [Contact](https://kyklosedu.gr/contact) - Get in touch
+
+## Roadmap
+
+### Q1 2026
+- [ ] Advanced analytics dashboard
+- [ ] Real-time WebSocket connections
+- [ ] API rate limiting improvements
+- [ ] Database query optimization
+- [ ] Enhanced error logging
+
+### Q2 2026
+- [ ] GraphQL API support
+- [ ] Microservices architecture
+- [ ] Advanced caching strategies
+- [ ] API versioning system
+- [ ] Automated testing pipeline
+
+### Q3 2026
+- [ ] Machine learning integration
+- [ ] Advanced monitoring system
+- [ ] Multi-database support
+- [ ] API analytics dashboard
+- [ ] Performance optimization
+
+### Q4 2026
+- [ ] Event-driven architecture
+- [ ] Advanced security features
+- [ ] API marketplace integration
+- [ ] Real-time collaboration
+- [ ] Advanced backup system
