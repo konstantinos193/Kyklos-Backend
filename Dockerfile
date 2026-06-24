@@ -1,5 +1,5 @@
-# Use Node.js 18 LTS as base image
-FROM node:18-alpine AS base
+# Use Node.js 22 LTS as base image
+FROM node:22-alpine AS base
 
 # Set working directory
 WORKDIR /app
@@ -17,7 +17,7 @@ COPY . .
 RUN yarn build
 
 # Production stage
-FROM node:18-alpine AS production
+FROM node:22-alpine AS production
 
 # Install dumb-init for proper signal handling
 RUN apk add --no-cache dumb-init

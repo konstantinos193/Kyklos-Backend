@@ -76,15 +76,14 @@ services:
       - ./logs/nginx:/var/log/nginx
     networks:
       - kyklos-network
-    depends_on:
-      - kyklos-backend-blue
-      - kyklos-backend-green
 
   # MongoDB for production (in-house)
   mongodb:
     image: mongo:7.0
     container_name: kyklos-mongodb
     restart: unless-stopped
+    env_file:
+      - .env.docker
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
