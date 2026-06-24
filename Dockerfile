@@ -21,7 +21,7 @@ RUN yarn install --frozen-lockfile
 COPY . .
 
 # Build the application
-RUN yarn build
+RUN yarn build && ls -la dist
 
 # Change ownership to non-root user
 RUN chown -R nodejs:nodejs /app
