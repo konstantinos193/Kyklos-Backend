@@ -71,7 +71,7 @@ jobs:
             sleep 5
             
             # Verify green is serving traffic
-            curl -f http://localhost/health || exit 1
+            curl -f http://localhost/api/health || exit 1
             
             # Cleanup blue environment
             docker compose --env-file .env.docker stop kyklos-backend-blue || true
