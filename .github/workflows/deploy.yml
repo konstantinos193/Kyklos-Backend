@@ -52,9 +52,11 @@ jobs:
             # Pull latest image
             docker pull ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:latest
             
+            # Force remove green container if it exists (regardless of how it was created)
+            docker stop kyklos-backend-green || true
+            docker rm -f kyklos-backend-green || true
+            
             # Deploy to green environment
-            docker compose --env-file .env.docker stop kyklos-backend-green || true
-            docker compose --env-file .env.docker rm -f kyklos-backend-green || true
             docker compose --env-file .env.docker up -d kyklos-backend-green
             
             # Wait for green to be healthy
