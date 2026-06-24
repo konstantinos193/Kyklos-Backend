@@ -49,8 +49,8 @@ jobs:
           script: |
             cd /root/kyklos-backend
             
-            # Update docker-compose.yml to use the new image
-            sed -i "s|image: kyklos-backend:latest|image: ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:latest|g" docker-compose.yml
+            # Pull latest image
+            docker pull ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:latest
             
             # Deploy to green environment
             docker compose --env-file .env.docker stop kyklos-backend-green || true

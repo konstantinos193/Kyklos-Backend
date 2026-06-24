@@ -3,7 +3,7 @@ version: '3.8'
 services:
   # Blue environment (current production)
   kyklos-backend-blue:
-    image: kyklos-backend:latest
+    image: ghcr.io/konstantinos193/kyklos-backend:latest
     container_name: kyklos-backend-blue
     restart: unless-stopped
     environment:
@@ -24,7 +24,7 @@ services:
 
   # Green environment (new version)
   kyklos-backend-green:
-    image: kyklos-backend:latest
+    image: ghcr.io/konstantinos193/kyklos-backend:latest
     container_name: kyklos-backend-green
     restart: unless-stopped
     environment:
