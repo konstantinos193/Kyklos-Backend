@@ -1,23 +1,5 @@
 # Use Node.js 22 LTS as base image
-FROM node:22-alpine AS base
-
-# Set working directory
-WORKDIR /app
-
-# Copy package files
-COPY package.json yarn.lock ./
-
-# Install dependencies
-RUN yarn install --frozen-lockfile --production=false
-
-# Copy source code
-COPY . .
-
-# Build the application
-RUN yarn build
-
-# Production stage
-FROM node:22-alpine AS production
+FROM node:22-alpine
 
 # Install dumb-init for proper signal handling
 RUN apk add --no-cache dumb-init
@@ -32,12 +14,17 @@ WORKDIR /app
 # Copy package files
 COPY package.json yarn.lock ./
 
-# Install only production dependencies
-RUN yarn install --frozen-lockfile --production && \
-    yarn cache clean
+# Install all dependencies
+RUN yarn install --frozen-lockfile
 
-# Copy built application from base stage
-COPY --from=base --chown=nodejs:nodejs /app/dist ./dist
+# Copy source code
+COPY . .
+
+# Build the application
+RUN yarn build
+
+# Change ownership to non-root user
+RUN chown -R nodejs:nodejs /app
 
 # Switch to non-root user
 USER nodejs
