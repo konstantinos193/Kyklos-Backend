@@ -1,9 +1,9 @@
-import { Controller, Get, Post, Body, Query, UseGuards, Inject, forwardRef } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, UseGuards } from '@nestjs/common';
 import { NewsletterService } from './newsletter.service';
-import { EmailService } from '../email/email.service';
 import { SubscribeNewsletterDto } from './dto/subscribe-newsletter.dto';
 import { UnsubscribeNewsletterDto } from './dto/unsubscribe-newsletter.dto';
 import { SendNewsletterDto } from './dto/send-newsletter.dto';
+import { NewsletterQueryDto } from './dto/newsletter-query.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
 
@@ -11,22 +11,53 @@ import { AdminGuard } from '../auth/guards/admin.guard';
 export class NewsletterController {
   constructor(
     private readonly newsletterService: NewsletterService,
-    @Inject(forwardRef(() => EmailService))
-    private readonly emailService: EmailService,
   ) {}
 
   @Post('subscribe')
   async subscribe(@Body() subscribeDto: SubscribeNewsletterDto) {
-    return this.emailService.subscribeToNewsletter(
-      subscribeDto.email,
-      subscribeDto.name || '',
-      subscribeDto.source || 'website',
-    );
+    try {
+      const existing = await this.newsletterService.findByEmail(subscribeDto.email);
+
+      if (existing) {
+        if (existing.isActive) {
+          return { success: false, message: 'Email already subscribed' };
+        } else {
+          await this.newsletterService.resubscribe(subscribeDto.email);
+          return { success: true, message: 'Successfully resubscribed' };
+        }
+      }
+
+      await this.newsletterService.create({
+        email: subscribeDto.email,
+        name: subscribeDto.name || '',
+        source: subscribeDto.source || 'website',
+        isActive: true,
+        subscribedAt: new Date(),
+      });
+
+      return { success: true, message: 'Successfully subscribed' };
+    } catch (error: any) {
+      return { success: false, message: 'Subscription failed' };
+    }
   }
 
   @Post('unsubscribe')
   async unsubscribe(@Body() unsubscribeDto: UnsubscribeNewsletterDto) {
-    return this.emailService.unsubscribeFromNewsletter(unsubscribeDto.email);
+    try {
+      const subscriber = await this.newsletterService.findByEmail(unsubscribeDto.email);
+      if (!subscriber) {
+        return { success: false, message: 'Email not found' };
+      }
+
+      await this.newsletterService.updateById(subscriber._id.toString(), {
+        isActive: false,
+        unsubscribedAt: new Date(),
+      });
+
+      return { success: true, message: 'Successfully unsubscribed' };
+    } catch (error: any) {
+      return { success: false, message: 'Unsubscription failed' };
+    }
   }
 
   @Get('stats')
@@ -46,14 +77,13 @@ export class NewsletterController {
 
   @Get('subscribers')
   @UseGuards(JwtAuthGuard, AdminGuard)
-  async getSubscribers(@Query() query: any) {
-    const { page = 1, limit = 50, status = 'active' } = query;
+  async getSubscribers(@Query() query: NewsletterQueryDto) {
+    const { page = 1, limit = 50, isActive } = query;
     const filter: any = {};
-    if (status === 'active') filter.isActive = true;
-    if (status === 'inactive') filter.isActive = false;
-    
-    const result = await this.newsletterService.find(filter, { page: parseInt(page), limit: parseInt(limit) });
-    
+    if (isActive !== undefined) filter.isActive = isActive;
+
+    const result = await this.newsletterService.find(filter, { page: page as any, limit: limit as any });
+
     return {
       success: true,
       data: result.data,
@@ -90,10 +120,15 @@ export class NewsletterController {
 
   @Get('verify')
   async verify() {
-    const isReady = await this.emailService.verifyConnection();
+    const activeCount = await this.newsletterService.count({ isActive: true });
+    const totalCount = await this.newsletterService.count();
     return {
       success: true,
-      emailServiceReady: isReady,
+      data: {
+        total: totalCount,
+        active: activeCount,
+        inactive: totalCount - activeCount,
+      },
     };
   }
 }

@@ -1,12 +1,18 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
+import { CacheService } from '../cache/cache.service';
 import { ObjectId } from 'mongodb';
+import { Newsletter } from './dto/newsletter.interface';
 
 @Injectable()
 export class NewsletterService {
   private readonly COLLECTION_NAME = 'newsletters';
+  private readonly logger = new Logger(NewsletterService.name);
 
-  constructor(private readonly databaseService: DatabaseService) {}
+  constructor(
+    private readonly databaseService: DatabaseService,
+    private readonly cacheService: CacheService,
+  ) {}
 
   private getCollection() {
     return this.databaseService.getDb().collection(this.COLLECTION_NAME);
@@ -14,20 +20,27 @@ export class NewsletterService {
 
   private toObjectId(id: string | ObjectId): ObjectId | null {
     if (!id) return null;
+    
     if (typeof id === 'string') {
       return new ObjectId(id);
     }
     return id;
   }
 
-  async create(data: any) {
+  async create(data: Partial<Newsletter>) {
     const collection = this.getCollection();
     const newsletterData = {
       ...data,
       subscribedAt: new Date(),
       isActive: data.isActive !== undefined ? data.isActive : true,
     };
-    const result = await collection.insertOne(newsletterData);
+    // Remove _id if present to avoid ObjectId type conflict
+    const { _id, ...insertData } = newsletterData;
+    const result = await collection.insertOne(insertData);
+
+    // Clear cache
+    await this.cacheService.delPattern('newsletter:*');
+
     return { ...newsletterData, _id: result.insertedId };
   }
 
@@ -50,7 +63,7 @@ export class NewsletterService {
   async updateById(id: string | ObjectId, data: any) {
     const collection = this.getCollection();
     const objectId = this.toObjectId(id);
-    if (!objectId) throw new Error('Invalid ID');
+    if (!objectId) throw new BadRequestException('Invalid ID');
 
     const updateData = {
       ...data,
@@ -59,8 +72,11 @@ export class NewsletterService {
 
     const result = await collection.updateOne({ _id: objectId }, { $set: updateData });
     if (result.matchedCount === 0) {
-      throw new Error('Document not found');
+      throw new NotFoundException('Document not found');
     }
+
+    // Clear cache
+    await this.cacheService.delPattern('newsletter:*');
 
     return await collection.findOne({ _id: objectId });
   }
@@ -68,14 +84,19 @@ export class NewsletterService {
   async resubscribe(email: string) {
     const subscriber = await this.findByEmail(email);
     if (!subscriber) {
-      throw new Error('Subscriber not found');
+      throw new NotFoundException('Subscriber not found');
     }
 
-    return await this.updateById(subscriber._id, {
+    const result = await this.updateById(subscriber._id, {
       isActive: true,
       subscribedAt: new Date(),
       unsubscribedAt: null,
     });
+
+    // Clear cache
+    await this.cacheService.delPattern('newsletter:*');
+
+    return result;
   }
 
   async count(filter: any = {}) {

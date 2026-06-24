@@ -1,4 +1,5 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 
 @Injectable()
@@ -7,18 +8,19 @@ export class CacheService implements OnModuleInit {
   private token: string;
   private isConfigured: boolean;
   private networkWarned: boolean = false;
+  private readonly logger = new Logger(CacheService.name);
 
-  constructor() {
-    this.baseUrl = process.env.UPSTASH_REDIS_REST_URL || '';
-    this.token = process.env.UPSTASH_REDIS_REST_TOKEN || '';
+  constructor(private readonly configService: ConfigService) {
+    this.baseUrl = this.configService.get<string>('UPSTASH_REDIS_REST_URL') || '';
+    this.token = this.configService.get<string>('UPSTASH_REDIS_REST_TOKEN') || '';
     this.isConfigured = !!(this.baseUrl && this.token);
   }
 
   onModuleInit() {
     if (!this.isConfigured) {
-      console.log('⚠️  Upstash Redis not configured - running without cache');
+      this.logger.warn('⚠️  Upstash Redis not configured - running without cache');
     } else {
-      console.log('✅ Upstash Redis REST API configured');
+      this.logger.log('✅ Upstash Redis REST API configured');
     }
   }
 
@@ -52,11 +54,11 @@ export class CacheService implements OnModuleInit {
       const isNetwork = msg.includes('ENOTFOUND') || msg.includes('ECONN') || msg.includes('ENET');
       if (isNetwork) {
         if (!this.networkWarned) {
-          console.warn('Redis GET network error detected; continuing without cache.');
+          this.logger.warn('Redis GET network error detected; continuing without cache.');
           this.networkWarned = true;
         }
       } else {
-        console.error('Redis GET error:', msg);
+        this.logger.error('Redis GET error:', msg);
       }
       return null;
     }
@@ -78,11 +80,11 @@ export class CacheService implements OnModuleInit {
       const isNetwork = msg.includes('ENOTFOUND') || msg.includes('ECONN') || msg.includes('ENET');
       if (isNetwork) {
         if (!this.networkWarned) {
-          console.warn('Redis SET network error detected; continuing without cache.');
+          this.logger.warn('Redis SET network error detected; continuing without cache.');
           this.networkWarned = true;
         }
       } else {
-        console.error('Redis SET error:', msg);
+        this.logger.error('Redis SET error:', msg);
       }
     }
   }
@@ -101,11 +103,11 @@ export class CacheService implements OnModuleInit {
       const isNetwork = msg.includes('ENOTFOUND') || msg.includes('ECONN') || msg.includes('ENET');
       if (isNetwork) {
         if (!this.networkWarned) {
-          console.warn('Redis DEL network error detected; continuing without cache.');
+          this.logger.warn('Redis DEL network error detected; continuing without cache.');
           this.networkWarned = true;
         }
       } else {
-        console.error('Redis DEL error:', msg);
+        this.logger.error('Redis DEL error:', msg);
       }
     }
   }
@@ -141,11 +143,11 @@ export class CacheService implements OnModuleInit {
       const isNetwork = msg.includes('ENOTFOUND') || msg.includes('ECONN') || msg.includes('ENET');
       if (isNetwork) {
         if (!this.networkWarned) {
-          console.warn('Redis DEL pattern network error detected; continuing without cache.');
+          this.logger.warn('Redis DEL pattern network error detected; continuing without cache.');
           this.networkWarned = true;
         }
       } else {
-        console.error('Redis DEL pattern error:', msg);
+        this.logger.error('Redis DEL pattern error:', msg);
       }
     }
   }

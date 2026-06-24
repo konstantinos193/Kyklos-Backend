@@ -1,3 +1,4 @@
+/// <reference path="../types/multer.d.ts" />
 import { Controller, Get, Post, Put, Delete, Param, Query, Body, UseGuards, UseInterceptors, UploadedFiles, ParseFilePipe, MaxFileSizeValidator, FileTypeValidator } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { NewsService } from './news.service';
@@ -99,6 +100,28 @@ export class NewsController {
     files: Express.Multer.File[],
   ) {
     return this.newsService.addFiles(id, files || []);
+  }
+
+  @Post(':id/image')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @UseInterceptors(FilesInterceptor('image', 1))
+  async updateImage(
+    @Param('id') id: string,
+    @Body() imageData: { alt?: string; caption?: string },
+    @UploadedFiles(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 10 * 1024 * 1024 }), // 10MB for images
+          new FileTypeValidator({
+            fileType: /(png|jpeg|jpg|gif|webp)/,
+          }),
+        ],
+        fileIsRequired: false,
+      }),
+    )
+    files: Express.Multer.File[],
+  ) {
+    return this.newsService.updateImage(id, files?.[0], imageData);
   }
 
   @Delete(':id/files/:filePublicId')

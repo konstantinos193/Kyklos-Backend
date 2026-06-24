@@ -1,21 +1,36 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Logger } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { AdminService } from '../admin/admin.service';
-import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { ObjectId } from 'mongodb';
 import { CreateArchiveFileDto } from './dto/create-archive-file.dto';
-import * as https from 'https';
-import * as http from 'http';
+import * as fs from 'fs';
+import * as path from 'path';
+
+interface RetryOptions {
+  maxRetries?: number;
+  initialDelay?: number;
+  maxDelay?: number;
+  backoffMultiplier?: number;
+}
 
 @Injectable()
 export class PanhellenicArchiveService {
   private readonly COLLECTION_NAME = 'panhellenicarchive';
+  private readonly logger = new Logger(PanhellenicArchiveService.name);
+  
+  // Request deduplication cache
+  private readonly pendingRequests = new Map<string, Promise<any>>();
 
   constructor(
     private readonly databaseService: DatabaseService,
     private readonly adminService: AdminService,
-    private readonly cloudinaryService: CloudinaryService,
-  ) {}
+  ) {
+    // Ensure upload directory exists in backend public folder
+    const uploadDir = path.join(process.cwd(), 'public', 'panhellenic-archive');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+  }
 
   private getCollection() {
     return this.databaseService.getDb().collection(this.COLLECTION_NAME);
@@ -30,6 +45,99 @@ export class PanhellenicArchiveService {
     return id;
   }
 
+  /**
+   * Retry utility with exponential backoff
+   */
+  private async retryWithBackoff<T>(
+    fn: () => Promise<T>,
+    options: RetryOptions = {}
+  ): Promise<T> {
+    const {
+      maxRetries = 3,
+      initialDelay = 1000,
+      maxDelay = 30000,
+      backoffMultiplier = 2,
+    } = options;
+
+    let lastError: any;
+    let delay = initialDelay;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await fn();
+      } catch (error) {
+        lastError = error;
+
+        // Check if we should retry this error
+        if (!this.shouldRetry(error) || attempt === maxRetries) {
+          throw error;
+        }
+
+        this.logger.warn(
+          `Archive service operation failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${delay}ms...`,
+          (error as Error)?.message || String(error)
+        );
+
+        // Wait with exponential backoff
+        await this.sleep(delay);
+        delay = Math.min(delay * backoffMultiplier, maxDelay);
+      }
+    }
+
+    throw lastError;
+  }
+
+  /**
+   * Determine if an error is retryable
+   */
+  private shouldRetry(error: any): boolean {
+    // Retry on network errors
+    if (!error.response) {
+      return true;
+    }
+
+    // Retry on 5xx errors
+    if (error.status && error.status >= 500) {
+      return true;
+    }
+
+    // Retry on timeout
+    if (error.code === 'ETIMEDOUT' || error.code === 'ECONNRESET') {
+      return true;
+    }
+
+    // Don't retry on 4xx client errors
+    return false;
+  }
+
+  /**
+   * Sleep utility
+   */
+  private sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Deduplicate requests to prevent duplicate work
+   */
+  private async deduplicateRequest<T>(key: string, fn: () => Promise<T>): Promise<T> {
+    // If request is already pending, return the existing promise
+    if (this.pendingRequests.has(key)) {
+      this.logger.debug(`Deduplicating request: ${key}`);
+      return this.pendingRequests.get(key)!;
+    }
+
+    // Create new request
+    const promise = fn()
+      .finally(() => {
+        // Clean up after request completes
+        this.pendingRequests.delete(key);
+      });
+
+    this.pendingRequests.set(key, promise);
+    return promise;
+  }
+
   async findAll(filters: any = {}) {
     const query: any = {
       isActive: true,
@@ -38,15 +146,40 @@ export class PanhellenicArchiveService {
     if (filters.subject) query.subject = filters.subject;
     if (filters.year) query.year = parseInt(filters.year);
 
+    const page = parseInt(filters.page) || 1;
+    const limit = parseInt(filters.limit) || 50;
+    const skip = (page - 1) * limit;
+
     const collection = this.getCollection();
+    
+    // Get total count
+    const totalCount = await collection.countDocuments(query);
+    
+    // Get paginated results
     const files = await collection
       .find(query)
       .sort({ year: -1, subject: 1, createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
       .toArray();
+
+    // Ensure all files have 'url' field (migrate old files)
+    const filesWithUrl = files.map(file => ({
+      ...file,
+      url: file.url || file.fileUrl || '',
+    }));
 
     return {
       success: true,
-      data: files,
+      data: filesWithUrl,
+      pagination: {
+        page,
+        limit,
+        totalCount,
+        totalPages: Math.ceil(totalCount / limit),
+        hasNextPage: page < Math.ceil(totalCount / limit),
+        hasPreviousPage: page > 1,
+      },
     };
   }
 
@@ -109,28 +242,24 @@ export class PanhellenicArchiveService {
       throw new ForbiddenException('Admin not found');
     }
 
-    // Upload to Cloudinary
-    let cloudinaryResult;
-    try {
-      cloudinaryResult = await this.cloudinaryService.uploadFile(file, 'panhellenic-archive');
-    } catch (error) {
-      console.error('Error uploading to Cloudinary:', error);
-      throw new BadRequestException('Σφάλμα κατά το ανέβασμα του αρχείου');
-    }
+    // File is already saved by diskStorage in controller
+    // Use the filename that was generated by diskStorage
+    const uniqueFileName = file.filename;
 
     const collection = this.getCollection();
 
     // Generate fileName from displayName if not provided
-    const fileName = file.originalname || `${createDto.displayName}.${file.mimetype.split('/')[1]}`;
+    const originalFileName = file.originalname || `${createDto.displayName}.${file.mimetype.split('/')[1]}`;
 
     const archiveFile = {
       displayName: createDto.displayName,
-      fileName,
+      fileName: originalFileName,
       subject: createDto.subject,
       year: createDto.year,
       description: createDto.description || '',
-      fileUrl: cloudinaryResult.secureUrl,
-      publicId: cloudinaryResult.publicId,
+      url: `/public/panhellenic-archive/${uniqueFileName}`,
+      fileUrl: `/public/panhellenic-archive/${uniqueFileName}`, // Keep for backward compatibility
+      publicId: uniqueFileName, // Store the unique filename as publicId
       mimeType: file.mimetype,
       fileSize: file.size,
       uploadedBy: uploadedBy,
@@ -203,26 +332,16 @@ export class PanhellenicArchiveService {
       throw new NotFoundException('Το αρχείο δεν βρέθηκε');
     }
 
-    // Delete from Cloudinary
+    // Delete from local disk in backend public folder
     if (file.publicId) {
+      const filePath = path.join(process.cwd(), 'public', 'panhellenic-archive', file.publicId);
       try {
-        // Determine resource type based on mimeType
-        // PDFs and documents are stored as 'raw', images/videos as 'auto'
-        const isPdf = file.mimeType === 'application/pdf';
-        const isDocument = [
-          'application/msword',
-          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-          'application/vnd.ms-excel',
-          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          'application/vnd.ms-powerpoint',
-          'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-        ].includes(file.mimeType);
-        
-        const resourceType = isPdf || isDocument ? 'raw' : 'auto';
-        await this.cloudinaryService.deleteFile(file.publicId, resourceType);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
       } catch (error) {
-        console.error('Error deleting file from Cloudinary:', error);
-        // Continue with database deletion even if Cloudinary deletion fails
+        console.error('Error deleting file from disk:', error);
+        // Continue with database deletion even if file deletion fails
       }
     }
 
@@ -266,8 +385,7 @@ export class PanhellenicArchiveService {
   }
 
   /**
-   * Get file stream for proxying
-   * This is used to serve files that might not be directly accessible (e.g., old uploads)
+   * Get file stream from local disk
    */
   async getFileStream(id: string): Promise<{ stream: NodeJS.ReadableStream; mimeType: string; fileName: string }> {
     const collection = this.getCollection();
@@ -285,49 +403,19 @@ export class PanhellenicArchiveService {
       throw new NotFoundException('Το αρχείο δεν έχει publicId');
     }
 
-    // Determine resource type based on mimeType
-    const isPdf = file.mimeType === 'application/pdf';
-    const isDocument = [
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'application/vnd.ms-excel',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'application/vnd.ms-powerpoint',
-      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-    ].includes(file.mimeType);
+    const filePath = path.join(process.cwd(), 'public', 'panhellenic-archive', file.publicId);
     
-    const resourceType = isPdf || isDocument ? 'raw' : 'image';
+    if (!fs.existsSync(filePath)) {
+      throw new NotFoundException('Το αρχείο δεν βρέθηκε στο δίσκο');
+    }
 
-    // Get the Cloudinary URL
-    const cloudinaryUrl = this.cloudinaryService.getFileUrl(file.publicId, resourceType);
-
-    // Return a promise that resolves to a stream
-    return new Promise((resolve, reject) => {
-      const urlObj = new URL(cloudinaryUrl);
-      const client = urlObj.protocol === 'https:' ? https : http;
-
-      const req = client.get(cloudinaryUrl, (res) => {
-        if (res.statusCode === 401 || res.statusCode === 403) {
-          reject(new ForbiddenException('Το αρχείο δεν είναι προσβάσιμο. Παρακαλώ ανεβάστε το ξανά.'));
-          return;
-        }
-
-        if (res.statusCode !== 200) {
-          reject(new NotFoundException(`Failed to fetch file: ${res.statusCode}`));
-          return;
-        }
-
-        resolve({
-          stream: res,
-          mimeType: file.mimeType || 'application/pdf',
-          fileName: file.fileName || 'file.pdf',
-        });
-      });
-
-      req.on('error', (error) => {
-        reject(new NotFoundException(`Failed to fetch file: ${error.message}`));
-      });
-    });
+    const stream = fs.createReadStream(filePath);
+    
+    return {
+      stream,
+      mimeType: file.mimeType || 'application/pdf',
+      fileName: file.fileName || 'file.pdf',
+    };
   }
 }
 

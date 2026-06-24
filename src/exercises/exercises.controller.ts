@@ -20,6 +20,9 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
 import { StudentJwtGuard } from '../auth/guards/student-jwt.guard';
 import { CreateExerciseDto } from './dto/create-exercise.dto';
+import { UpdateExerciseDto } from './dto/update-exercise.dto';
+import { AdminRequest } from '../common/interfaces/request.interface';
+import { StudentRequest } from '../common/interfaces/request.interface';
 
 @Controller('api/exercises')
 export class ExercisesController {
@@ -30,7 +33,7 @@ export class ExercisesController {
   @UseGuards(JwtAuthGuard, AdminGuard)
   @HttpCode(HttpStatus.OK)
   async getTeacherExercises(
-    @Request() req: any,
+    @Request() req: AdminRequest,
     @Query('page') page: string = '1',
     @Query('limit') limit: string = '50',
     @Query('subject') subject?: string,
@@ -90,8 +93,8 @@ export class ExercisesController {
   @UseInterceptors(FilesInterceptor('files', 10))
   @HttpCode(HttpStatus.CREATED)
   async createExercise(
-    @Request() req: any,
-    @Body() body: any,
+    @Request() req: AdminRequest,
+    @Body() createExerciseDto: CreateExerciseDto,
     @UploadedFiles() files: Express.Multer.File[],
   ) {
     try {
@@ -104,12 +107,12 @@ export class ExercisesController {
       }
 
       const exerciseData = {
-        title: body.title,
-        description: body.description,
-        subject: body.subject,
-        grade: body.grade || null,
+        title: createExerciseDto.title,
+        description: createExerciseDto.description,
+        subject: createExerciseDto.subject,
+        grade: createExerciseDto.grade || null,
         teacherId,
-        textContent: body.textContent,
+        textContent: createExerciseDto.textContent,
       };
 
       const exercise = await this.exercisesService.create(files || [], exerciseData);
@@ -134,8 +137,8 @@ export class ExercisesController {
   @HttpCode(HttpStatus.OK)
   async updateExercise(
     @Param('id') id: string,
-    @Request() req: any,
-    @Body() body: any,
+    @Request() req: AdminRequest,
+    @Body() updateExerciseDto: UpdateExerciseDto,
   ) {
     try {
       const teacherId = req.admin?.id;
@@ -157,12 +160,12 @@ export class ExercisesController {
       }
 
       const updateData: any = {};
-      if (body.title !== undefined) updateData.title = body.title;
-      if (body.description !== undefined) updateData.description = body.description;
-      if (body.subject !== undefined) updateData.subject = body.subject;
-      if (body.grade !== undefined) updateData.grade = body.grade;
-      if (body.textContent !== undefined) updateData.textContent = body.textContent;
-      if (body.isActive !== undefined) updateData.isActive = body.isActive;
+      if (updateExerciseDto.title !== undefined) updateData.title = updateExerciseDto.title;
+      if (updateExerciseDto.description !== undefined) updateData.description = updateExerciseDto.description;
+      if (updateExerciseDto.subject !== undefined) updateData.subject = updateExerciseDto.subject;
+      if (updateExerciseDto.grade !== undefined) updateData.grade = updateExerciseDto.grade;
+      if (updateExerciseDto.textContent !== undefined) updateData.textContent = updateExerciseDto.textContent;
+      if (updateExerciseDto.isActive !== undefined) updateData.isActive = updateExerciseDto.isActive;
 
       const updatedExercise = await this.exercisesService.update(id, updateData);
 
@@ -187,7 +190,7 @@ export class ExercisesController {
   @HttpCode(HttpStatus.OK)
   async addFilesToExercise(
     @Param('id') id: string,
-    @Request() req: any,
+    @Request() req: AdminRequest,
     @UploadedFiles() files: Express.Multer.File[],
   ) {
     try {
@@ -238,7 +241,7 @@ export class ExercisesController {
   async deleteFileFromExercise(
     @Param('id') id: string,
     @Param('filePublicId') filePublicId: string,
-    @Request() req: any,
+    @Request() req: AdminRequest,
   ) {
     try {
       const teacherId = req.admin?.id;
@@ -278,7 +281,7 @@ export class ExercisesController {
   @Delete('teacher/:id')
   @UseGuards(JwtAuthGuard, AdminGuard)
   @HttpCode(HttpStatus.OK)
-  async deleteExercise(@Param('id') id: string, @Request() req: any) {
+  async deleteExercise(@Param('id') id: string, @Request() req: AdminRequest) {
     try {
       const teacherId = req.admin?.id;
       const exercise = await this.exercisesService.findById(id);
@@ -316,7 +319,7 @@ export class ExercisesController {
   @UseGuards(StudentJwtGuard)
   @HttpCode(HttpStatus.OK)
   async getStudentExercises(
-    @Request() req: any,
+    @Request() req: StudentRequest,
     @Query('page') page: string = '1',
     @Query('limit') limit: string = '50',
     @Query('subject') subject?: string,
@@ -368,7 +371,7 @@ export class ExercisesController {
   @Get('student/:id')
   @UseGuards(StudentJwtGuard)
   @HttpCode(HttpStatus.OK)
-  async getExerciseById(@Param('id') id: string, @Request() req: any) {
+  async getExerciseById(@Param('id') id: string, @Request() req: StudentRequest) {
     try {
       const exercise = await this.exercisesService.findById(id);
 

@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: kyklos-mongodb-dev
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin123
+      MONGO_INITDB_DATABASE: kyklos_frontistirio
+    volumes:
+      - mongodb-data:/data/db
+    networks:
+      - kyklos-dev-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: kyklos-redis-dev
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass redis123
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - kyklos-dev-network
+
+networks:
+  kyklos-dev-network:
+    driver: bridge
+
+volumes:
+  mongodb-data:
+    driver: local
+  redis-data:
+    driver: local

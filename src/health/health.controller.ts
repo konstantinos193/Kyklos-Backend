@@ -1,4 +1,5 @@
 import { Controller, Get } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { DatabaseService } from '../database/database.service';
 import { CacheService } from '../cache/cache.service';
 import { EmailService } from '../email/email.service';
@@ -9,6 +10,7 @@ export class HealthController {
     private readonly databaseService: DatabaseService,
     private readonly cacheService: CacheService,
     private readonly emailService: EmailService,
+    private readonly configService: ConfigService,
   ) {}
 
   @Get()
@@ -72,7 +74,7 @@ export class HealthController {
         timestamp: new Date().toISOString(),
         uptime: process.uptime(),
         responseTimeMs: Date.now() - start,
-        environment: process.env.NODE_ENV || 'development',
+        environment: this.configService.get<string>('NODE_ENV') || 'development',
         version: '1.0.0',
         services,
         details: {

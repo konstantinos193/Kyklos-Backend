@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { ObjectId } from 'mongodb';
 
@@ -41,7 +41,7 @@ export class AdminService {
   async updateLastLogin(id: string | ObjectId) {
     const collection = this.getCollection();
     const objectId = this.toObjectId(id);
-    if (!objectId) throw new Error('Invalid ID');
+    if (!objectId) throw new BadRequestException('Invalid ID');
     await collection.updateOne({ _id: objectId }, { $set: { lastLogin: new Date() } });
   }
 
@@ -77,7 +77,7 @@ export class AdminService {
   async update(id: string | ObjectId, data: any) {
     const collection = this.getCollection();
     const objectId = this.toObjectId(id);
-    if (!objectId) throw new Error('Invalid ID');
+    if (!objectId) throw new BadRequestException('Invalid ID');
     
     const updateData = { ...data, updatedAt: new Date() };
     const result = await collection.updateOne(
@@ -95,7 +95,7 @@ export class AdminService {
   async delete(id: string | ObjectId) {
     const collection = this.getCollection();
     const objectId = this.toObjectId(id);
-    if (!objectId) throw new Error('Invalid ID');
+    if (!objectId) throw new BadRequestException('Invalid ID');
     
     const result = await collection.deleteOne({ _id: objectId });
     return result.deletedCount > 0;

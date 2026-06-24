@@ -1,11 +1,11 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { NewsletterService } from './newsletter.service';
 import { NewsletterController } from './newsletter.controller';
-import { EmailModule } from '../email/email.module';
+import { CacheModule } from '../cache/cache.module';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
-  imports: [forwardRef(() => EmailModule), AuthModule],
+  imports: [CacheModule, AuthModule],
   controllers: [NewsletterController],
   providers: [NewsletterService],
   exports: [NewsletterService],

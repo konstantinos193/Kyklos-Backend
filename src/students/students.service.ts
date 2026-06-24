@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { ObjectId } from 'mongodb';
+import { Student } from './dto/student.interface';
 
 @Injectable()
 export class StudentService {
@@ -69,7 +70,7 @@ export class StudentService {
     throw new BadRequestException('Unable to generate unique student key. Please try again.');
   }
 
-  async create(data: any) {
+  async create(data: Partial<Student>) {
     // Generate unique key if not provided
     let uniqueKey = data.uniqueKey;
     if (!uniqueKey || uniqueKey.trim() === '') {
@@ -95,7 +96,9 @@ export class StudentService {
     };
 
     const collection = this.getCollection();
-    const result = await collection.insertOne(studentData);
+    // Remove _id if present to avoid ObjectId type conflict
+    const { _id, ...insertData } = studentData;
+    const result = await collection.insertOne(insertData);
     return { ...studentData, _id: result.insertedId };
   }
 
@@ -109,12 +112,12 @@ export class StudentService {
     return await collection.findOne({ _id: objectId });
   }
 
-  async findOne(filter: any) {
+  async findOne(filter: Record<string, any>) {
     const collection = this.getCollection();
     return await collection.findOne(filter);
   }
 
-  async find(filter: any = {}, options: any = {}) {
+  async find(filter: Record<string, any> = {}, options: Record<string, any> = {}) {
     const collection = this.getCollection();
     const page = options.page || 1;
     const limit = options.limit || 10;
@@ -142,7 +145,7 @@ export class StudentService {
     };
   }
 
-  async updateById(id: string | ObjectId, data: any) {
+  async updateById(id: string | ObjectId, data: Partial<Student>) {
     const collection = this.getCollection();
     const objectId = this.toObjectId(id);
     if (!objectId) throw new BadRequestException('Invalid ID');
@@ -174,7 +177,7 @@ export class StudentService {
     return { success: true };
   }
 
-  async count(filter: any = {}) {
+  async count(filter: Record<string, any> = {}) {
     const collection = this.getCollection();
     return await collection.countDocuments(filter);
   }
@@ -195,15 +198,15 @@ export class StudentService {
     return await this.updateById(id, { lastLogin: new Date() });
   }
 
-  async getActiveStudents(options: any = {}) {
+  async getActiveStudents(options: Record<string, any> = {}) {
     return await this.find({ status: 'active' }, options);
   }
 
-  async getStudentsByGrade(grade: string, options: any = {}) {
+  async getStudentsByGrade(grade: string, options: Record<string, any> = {}) {
     return await this.find({ grade }, options);
   }
 
-  addVirtualFields(student: any) {
+  addVirtualFields(student: Student | any) {
     if (!student) return student;
 
     return {

@@ -24,10 +24,6 @@ export class StudentJwtGuard implements CanActivate {
     }
 
     try {
-      if (!process.env.JWT_SECRET) {
-        throw new UnauthorizedException('Server configuration error: JWT not configured');
-      }
-
       const payload = await this.jwtService.verifyAsync(token);
 
       if (payload.type !== 'student') {

@@ -1,128 +1,78 @@
-import { Injectable, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import { CacheService } from '../cache/cache.service';
-import { NewsletterService } from '../newsletter/newsletter.service';
 
 @Injectable()
 export class EmailService {
   private transporter: nodemailer.Transporter | null = null;
+  private readonly logger = new Logger(EmailService.name);
 
   constructor(
     private readonly cacheService: CacheService,
-    @Inject(forwardRef(() => NewsletterService))
-    private readonly newsletterService: NewsletterService,
+    private readonly configService: ConfigService,
   ) {
     this.initializeTransporter();
   }
 
   private initializeTransporter() {
-    if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+    const emailUser = this.configService.get<string>('EMAIL_USER');
+    const emailPass = this.configService.get<string>('EMAIL_PASS');
+    
+    if (emailUser && emailPass) {
       this.transporter = nodemailer.createTransport({
-        host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-        port: parseInt(process.env.EMAIL_PORT || '587'),
+        host: this.configService.get<string>('EMAIL_HOST') || 'smtp.gmail.com',
+        port: parseInt(this.configService.get<string>('EMAIL_PORT') || '587'),
         secure: false,
         auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS,
+          user: emailUser,
+          pass: emailPass,
         },
       });
     } else {
-      console.log('⚠️  Email credentials not configured - email features disabled');
+      this.logger.warn('⚠️  Email credentials not configured - email features disabled');
       this.transporter = null;
     }
   }
 
   async verifyConnection(): Promise<boolean> {
     if (!this.transporter) {
-      console.log('⚠️  Email service not configured');
+      this.logger.warn('⚠️  Email service not configured');
       return false;
     }
 
     try {
       await this.transporter.verify();
-      console.log('✅ Email service ready');
+      this.logger.log('✅ Email service ready');
       return true;
     } catch (error: any) {
-      console.error('❌ Email service error:', error.message);
+      this.logger.error('❌ Email service error:', error.message);
       return false;
     }
   }
 
-  async subscribeToNewsletter(email: string, name: string = '', source: string = 'website') {
-    try {
-      const existing = await this.newsletterService.findByEmail(email);
-
-      if (existing) {
-        if (existing.isActive) {
-          return { success: false, message: 'Email already subscribed' };
-        } else {
-          await this.newsletterService.resubscribe(email);
-          await this.cacheService.delPattern('newsletter:*');
-          return { success: true, message: 'Email reactivated successfully' };
-        }
-      }
-
-      const subscriber = await this.newsletterService.create({
-        email: email.toLowerCase(),
-        name: name.trim(),
-        source: source,
-        isActive: true,
-      });
-
-      await this.cacheService.delPattern('newsletter:*');
-      await this.sendWelcomeEmail(email, name);
-
-      return { success: true, message: 'Successfully subscribed to newsletter' };
-    } catch (error: any) {
-      console.error('Newsletter subscription error:', error);
-      return { success: false, message: 'Subscription failed' };
-    }
-  }
-
-  async unsubscribeFromNewsletter(email: string) {
-    try {
-      const subscriber = await this.newsletterService.findOne({
-        email: email.toLowerCase(),
-        isActive: true,
-      });
-
-      if (!subscriber) {
-        return { success: false, message: 'Email not found in subscription list' };
-      }
-
-      await this.newsletterService.updateById(subscriber._id.toString(), {
-        isActive: false,
-        unsubscribedAt: new Date(),
-      });
-
-      await this.cacheService.delPattern('newsletter:*');
-
-      return { success: true, message: 'Successfully unsubscribed' };
-    } catch (error: any) {
-      console.error('Newsletter unsubscription error:', error);
-      return { success: false, message: 'Unsubscription failed' };
-    }
-  }
+  // Newsletter methods moved to NewsletterService to avoid circular dependency
+  // Use NewsletterController for newsletter operations
 
   async sendWelcomeEmail(email: string, name: string = '') {
     if (!this.transporter) {
-      console.log('⚠️  Email service not configured - skipping welcome email');
+      this.logger.warn('⚠️  Email service not configured - skipping welcome email');
       return;
     }
 
     try {
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
       const mailOptions = {
-        from: process.env.EMAIL_FROM || 'grkyklos-@hotmail.gr',
+        from: this.configService.get<string>('EMAIL_FROM') || 'grkyklos-@hotmail.gr',
         to: email,
         subject: '🎓 Καλώς ήρθατε στο ΚΥΚΛΟΣ Φροντιστήριο!',
         html: this.getWelcomeEmailTemplate(name, frontendUrl, email),
       };
 
       await this.transporter.sendMail(mailOptions);
-      console.log(`✅ Welcome email sent to ${email}`);
+      this.logger.log(`✅ Welcome email sent to ${email}`);
     } catch (error: any) {
-      console.error('Welcome email error:', error);
+      this.logger.error('Welcome email error:', error);
     }
   }
 
@@ -134,24 +84,24 @@ export class EmailService {
     message: string;
   }) {
     if (!this.transporter) {
-      console.log('⚠️  Email service not configured - skipping contact form email');
+      this.logger.warn('⚠️  Email service not configured - skipping contact form email');
       return { success: false, message: 'Email service not available' };
     }
 
     try {
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
       const mailOptions = {
-        from: process.env.EMAIL_FROM || 'grkyklos-@hotmail.gr',
-        to: process.env.CONTACT_EMAIL || process.env.EMAIL_USER,
+        from: this.configService.get<string>('EMAIL_FROM') || 'grkyklos-@hotmail.gr',
+        to: this.configService.get<string>('CONTACT_EMAIL') || this.configService.get<string>('EMAIL_USER'),
         subject: `🌐 Νέο μήνυμα από την ιστοσελίδα: ${data.subject}`,
         html: this.getContactFormEmailTemplate(data, frontendUrl),
       };
 
       await this.transporter.sendMail(mailOptions);
-      console.log(`✅ Contact form email sent from ${data.email}`);
+      this.logger.log(`✅ Contact form email sent from ${data.email}`);
       return { success: true, message: 'Contact form submitted successfully' };
     } catch (error: any) {
-      console.error('Contact form email error:', error);
+      this.logger.error('Contact form email error:', error);
       return { success: false, message: 'Failed to send contact form' };
     }
   }

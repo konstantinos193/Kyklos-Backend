@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, Logger } from '@nestjs/common';
 import { AppModule } from './app.module';
 import helmet from 'helmet';
 import compression from 'compression';
@@ -7,8 +7,11 @@ import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
+import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 
 async function bootstrap() {
+  const logger = new Logger('Bootstrap');
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   // Cookie parser
@@ -53,7 +56,7 @@ async function bootstrap() {
 
   // CORS configuration
   const allowedOrigins = [
-    process.env.FRONTEND_URL?.replace(/\/$/, ''),
+    app.get('FRONTEND_URL')?.replace(/\/$/, ''),
     'https://kyklosedu.gr',
     'http://localhost:3000',
   ].filter(Boolean); // Remove undefined/null values
@@ -88,7 +91,7 @@ async function bootstrap() {
   });
 
   // Logging
-  if (process.env.NODE_ENV === 'production') {
+  if (app.get('NODE_ENV') === 'production') {
     app.use(morgan('combined'));
   } else {
     app.use(morgan('dev'));
@@ -105,6 +108,12 @@ async function bootstrap() {
       },
     }),
   );
+
+  // Global exception filter
+  app.useGlobalFilters(new HttpExceptionFilter());
+
+  // Global response interceptor
+  app.useGlobalInterceptors(new TransformInterceptor());
 
   // Serve static files from public directory
   app.useStaticAssets(join(__dirname, '..', 'public'), {
@@ -128,10 +137,10 @@ async function bootstrap() {
     },
   });
 
-  const port = process.env.PORT || 5000;
+  const port = app.get('PORT') || 5000;
   await app.listen(port);
-  console.log(`🚀 Server running on port ${port}`);
-  console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
+  logger.log(`🚀 Server running on port ${port}`);
+  logger.log(`📝 Environment: ${app.get('NODE_ENV') || 'development'}`);
 }
 
 bootstrap();

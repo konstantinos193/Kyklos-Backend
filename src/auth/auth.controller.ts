@@ -5,6 +5,7 @@ import {
   Headers,
   HttpCode,
   HttpStatus,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { StudentLoginDto } from './dto/student-login.dto';
@@ -24,7 +25,7 @@ export class AuthController {
   async verifyStudent(@Headers('authorization') authHeader: string) {
     const token = authHeader?.replace('Bearer ', '');
     if (!token) {
-      throw new Error('No token provided');
+      throw new UnauthorizedException('No token provided');
     }
     return this.authService.verifyStudentToken(token);
   }
@@ -43,7 +44,7 @@ export class AuthController {
   async refreshStudent(@Headers('authorization') authHeader: string) {
     const token = authHeader?.replace('Bearer ', '');
     if (!token) {
-      throw new Error('No token provided');
+      throw new UnauthorizedException('No token provided');
     }
     return this.authService.refreshStudentToken(token);
   }

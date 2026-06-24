@@ -20,17 +20,11 @@ export class JwtAuthGuard implements CanActivate {
     }
 
     try {
-      if (!process.env.JWT_SECRET) {
-        console.error('JWT secret is not configured. Set JWT_SECRET in environment.');
-        throw new UnauthorizedException('Server configuration error: JWT not configured');
-      }
-
       const payload = await this.jwtService.verifyAsync(token);
 
       request['admin'] = payload;
       return true;
     } catch (error: any) {
-      console.error('Token verification error:', error.message);
       throw new UnauthorizedException('Invalid token.');
     }
   }

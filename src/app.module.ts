@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AppController } from './app.controller';
 import { DatabaseModule } from './database/database.module';
@@ -25,8 +25,13 @@ import { ExercisesModule } from './exercises/exercises.module';
       envFilePath: ['.env', '../.env'],
       expandVariables: true,
     }),
-    MongooseModule.forRoot(process.env.MONGODB_URI || '', {
-      dbName: process.env.MONGODB_DB_NAME || 'kyklos_frontistirio',
+    MongooseModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: async (configService: ConfigService) => ({
+        uri: configService.get<string>('MONGODB_URI') || '',
+        dbName: configService.get<string>('MONGODB_DB_NAME') || 'kyklos_frontistirio',
+      }),
+      inject: [ConfigService],
     }),
     DatabaseModule,
     CacheModule,

@@ -13,6 +13,8 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { StudentRequest } from '../common/interfaces/request.interface';
+import { AdminRequest } from '../common/interfaces/request.interface';
 import { Response } from 'express';
 import { ExamMaterialsService } from './exam-materials.service';
 import { StudentJwtGuard } from '../auth/guards/student-jwt.guard';
@@ -28,31 +30,31 @@ export class ExamMaterialsController {
 
   @Get()
   @UseGuards(StudentJwtGuard)
-  async findAllForStudent(@Query() query: any, @Request() req: any) {
+  async findAllForStudent(@Query() query: any, @Request() req: StudentRequest) {
     return this.examMaterialsService.findAllForStudent(req.studentId, query);
   }
 
   @Get('admin')
   @UseGuards(JwtAuthGuard, AdminGuard)
-  async findAllForAdmin(@Query() query: any, @Request() req: any) {
+  async findAllForAdmin(@Query() query: any, @Request() req: AdminRequest) {
     return this.examMaterialsService.findAllForAdmin(query, req.admin.id);
   }
 
   @Get('admin/list')
   @UseGuards(JwtAuthGuard, AdminGuard)
-  async findAllForAdminList(@Query() query: any, @Request() req: any) {
+  async findAllForAdminList(@Query() query: any, @Request() req: AdminRequest) {
     return this.examMaterialsService.findAllForAdmin(query, req.admin.id);
   }
 
   @Get(':id')
   @UseGuards(StudentJwtGuard)
-  async findOneForStudent(@Param('id') id: string, @Request() req: any) {
+  async findOneForStudent(@Param('id') id: string, @Request() req: StudentRequest) {
     return this.examMaterialsService.findByIdForStudent(id, req.studentId);
   }
 
   @Get('download/:id')
   @UseGuards(StudentJwtGuard)
-  async downloadForStudent(@Param('id') id: string, @Request() req: any, @Res() res: Response) {
+  async downloadForStudent(@Param('id') id: string, @Request() req: StudentRequest, @Res({ passthrough: true }) res: Response) {
     const fileInfo = await this.examMaterialsService.downloadForStudent(id, req.studentId);
 
     res.setHeader('Content-Disposition', `attachment; filename="${fileInfo.fileName}"`);
@@ -66,7 +68,7 @@ export class ExamMaterialsController {
   @Post()
   @UseGuards(JwtAuthGuard, AdminGuard)
   @HttpCode(HttpStatus.CREATED)
-  async create(@Body() createDto: CreateExamMaterialDto, @Request() req: any) {
+  async create(@Body() createDto: CreateExamMaterialDto, @Request() req: AdminRequest) {
     return this.examMaterialsService.create(createDto, req.admin.id);
   }
 
@@ -75,14 +77,14 @@ export class ExamMaterialsController {
   async update(
     @Param('id') id: string,
     @Body() updateDto: UpdateExamMaterialDto,
-    @Request() req: any,
+    @Request() req: AdminRequest,
   ) {
     return this.examMaterialsService.update(id, updateDto, req.admin.id);
   }
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, AdminGuard)
-  async delete(@Param('id') id: string, @Request() req: any) {
+  async delete(@Param('id') id: string, @Request() req: AdminRequest) {
     return this.examMaterialsService.delete(id, req.admin.id);
   }
 }

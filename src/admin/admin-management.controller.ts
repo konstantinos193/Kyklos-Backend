@@ -13,6 +13,9 @@ import {
   Query,
 } from '@nestjs/common';
 import { AdminService } from './admin.service';
+import { CreateAdminDto } from './dto/create-admin.dto';
+import { UpdateAdminDto } from './dto/update-admin.dto';
+import { AdminRequest } from '../common/interfaces/request.interface';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
 import * as bcrypt from 'bcryptjs';
@@ -109,9 +112,9 @@ export class AdminManagementController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  async createAdmin(@Body() body: any, @Request() req: any) {
+  async createAdmin(@Body() createAdminDto: CreateAdminDto, @Request() req: AdminRequest) {
     try {
-      const { email, password, name, role = 'teacher', isActive = true, permissions, specialization } = body;
+      const { email, password, name, role = 'teacher', isActive = true, permissions, specialization } = createAdminDto;
 
       if (!email || !password || !name) {
         return {
@@ -176,9 +179,9 @@ export class AdminManagementController {
 
   @Put(':id')
   @HttpCode(HttpStatus.OK)
-  async updateAdmin(@Param('id') id: string, @Body() body: any) {
+  async updateAdmin(@Param('id') id: string, @Body() updateAdminDto: UpdateAdminDto) {
     try {
-      const { email, password, name, role, isActive, permissions, specialization } = body;
+      const { email, password, name, role, isActive, permissions, specialization } = updateAdminDto;
 
       const existingAdmin = await this.adminService.findById(id);
       if (!existingAdmin) {
@@ -254,7 +257,7 @@ export class AdminManagementController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
-  async deleteAdmin(@Param('id') id: string, @Request() req: any) {
+  async deleteAdmin(@Param('id') id: string, @Request() req: AdminRequest) {
     try {
       // Prevent self-deletion
       if (req.admin?.id === id) {

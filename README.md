@@ -17,6 +17,7 @@
 [![Express](https://img.shields.io/badge/Express-4.18.2-000000?style=for-the-badge&logo=express)](https://expressjs.com/)
 [![MongoDB](https://img.shields.io/badge/MongoDB-6.0-47A248?style=for-the-badge&logo=mongodb)](https://www.mongodb.com/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9.3-blue?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
+[![Redis](https://img.shields.io/badge/Redis-6.0.0-DC382D?style=for-the-badge&logo=redis)](https://redis.io/)
 
 ## The Digital Backbone of Chaos
 
@@ -49,7 +50,7 @@ The **ΚΥΚΛΟΣ Εκπαίδευση Backend** is what happens when you need 
 
 ### Database & Caching
 - **Mongoose** - MongoDB ODM that makes database queries actually readable
-- **Upstash Redis** - Caching layer faster than a student's excuse for missing homework
+- **Upstash Redis 6.0.0** - Caching layer faster than a student's excuse for missing homework
 - **MongoDB Atlas** - Cloud database that's more reliable than our coffee machine
 
 ### Development Tools
@@ -57,6 +58,7 @@ The **ΚΥΚΛΟΣ Εκπαίδευση Backend** is what happens when you need 
 - **Jest** - Testing framework because we pretend to care about code quality
 - **ESLint** - Code linting to maintain the illusion of professionalism
 - **Prettier** - Code formatting so it looks like we know what we're doing
+- **NestJS CLI 11.0.22** - Command-line interface for NestJS framework
 
 ## The Digital Catacombs
 
@@ -464,6 +466,17 @@ Or check the GitHub issues (and pray someone answers).
 
 ## Changelog
 
+### v1.1.0 - 2026-06-08
+- Package updates and security improvements
+- Updated @nestjs/cli to 11.0.22
+- Updated @nestjs/core to 11.1.26
+- Updated Redis to 6.0.0
+- Updated axios to 1.17.0
+- Updated pdfjs-dist to 6.0.227
+- Updated nodemailer to 8.0.10
+- Updated morgan to 1.11.0
+- Updated @types/node to 25.9.2
+
 ### v1.0.0 - 2026-03-01
 - Initial release
 - Node.js 20, Express 4.18, TypeScript 5.9
@@ -498,7 +511,7 @@ Built with caffeine, frustration, and a touch of ancient Greek wisdom by [konsta
 ### Badges
 
 ![License](https://img.shields.io/badge/license-Proprietary-red)
-![Version](https://img.shields.io/badge/version-1.0.0-blue)
+![Version](https://img.shields.io/badge/version-1.1.0-blue)
 ![Build](https://img.shields.io/badge/build-Passing-brightgreen)
 ![Coverage](https://img.shields.io/badge/coverage-90%25-green)
 

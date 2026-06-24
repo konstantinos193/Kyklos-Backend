@@ -4,6 +4,7 @@ import { CacheService } from '../cache/cache.service';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { ObjectId } from 'mongodb';
 import { NewsType } from './dto/create-news.dto';
+import { News } from './dto/news.interface';
 
 @Injectable()
 export class NewsService {
@@ -97,7 +98,7 @@ export class NewsService {
     const total = await collection.countDocuments(filter);
 
     // Get documents
-    let cursor = collection.find(filter).sort({ publishDate: -1 }).skip(skip).limit(limit);
+    let cursor = collection.find(filter).sort({ publishedAt: -1, publishDate: -1 }).skip(skip).limit(limit);
     const data = await cursor.toArray();
 
     // Sort featured posts first
@@ -184,7 +185,7 @@ export class NewsService {
     const collection = this.getCollection();
     const posts = await collection
       .find({ type, status: 'published' })
-      .sort({ publishDate: -1 })
+      .sort({ publishedAt: -1, publishDate: -1 })
       .toArray();
 
     await this.cacheService.set(cacheKey, posts, this.CACHE_DURATION.NEWS_LIST);
@@ -220,7 +221,7 @@ export class NewsService {
     };
   }
 
-  async create(data: any) {
+  async create(data: Partial<News>) {
     const collection = this.getCollection();
 
     // Generate slug if not provided
@@ -238,7 +239,9 @@ export class NewsService {
       data.publishDate = new Date();
     }
 
-    const result = await collection.insertOne(data);
+    // Remove _id from data before insert
+    const { _id, ...insertData } = data;
+    const result = await collection.insertOne(insertData);
     const post = { ...data, _id: result.insertedId };
 
     // Clear related caches
@@ -380,6 +383,58 @@ export class NewsService {
     await this.cacheService.del('news:types');
 
     return await this.findById(id.toString());
+  }
+
+  async updateImage(id: string, file: Express.Multer.File | undefined, imageData: { alt?: string; caption?: string }) {
+    const post = await this.findById(id);
+    if (!post || !post.success) {
+      throw new NotFoundException('News post not found');
+    }
+
+    const postData = post.data as any;
+    const updateData: any = {
+      updatedAt: new Date(),
+    };
+
+    // Update image metadata
+    if (imageData.alt !== undefined) {
+      updateData['image.alt'] = imageData.alt;
+    }
+    if (imageData.caption !== undefined) {
+      updateData['image.caption'] = imageData.caption;
+    }
+
+    // Upload new image if provided
+    if (file) {
+      try {
+        const cloudinaryResult = await this.cloudinaryService.uploadFile(file, 'news');
+        updateData['image.url'] = cloudinaryResult.secureUrl;
+        updateData['image.publicId'] = cloudinaryResult.publicId;
+      } catch (error) {
+        console.error('Error uploading image:', error);
+        throw new BadRequestException('Failed to upload image');
+      }
+    }
+
+    const collection = this.getCollection();
+    const objectId = this.toObjectId(id);
+    const result = await collection.findOneAndUpdate(
+      { _id: objectId },
+      { $set: updateData },
+      { returnDocument: 'after' },
+    );
+
+    // Clear related caches
+    await this.cacheService.delPattern('news:list:*');
+    await this.cacheService.delPattern('news:type:*');
+    await this.cacheService.del(`news:single:${id}`);
+    await this.cacheService.del('news:types');
+
+    return {
+      success: true,
+      data: result,
+      message: 'Image updated successfully',
+    };
   }
 
   async deleteFile(id: string | ObjectId, filePublicId: string) {

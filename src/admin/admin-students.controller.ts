@@ -2,6 +2,8 @@ import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Query, Http
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
 import { StudentService } from '../students/students.service';
+import { CreateStudentDto } from './dto/create-student.dto';
+import { UpdateStudentDto } from './dto/update-student.dto';
 
 @Controller('api/admin/students')
 @UseGuards(JwtAuthGuard, AdminGuard)
@@ -25,9 +27,9 @@ export class AdminStudentsController {
   }
 
   @Post()
-  async create(@Body() body: any) {
+  async create(@Body() createStudentDto: CreateStudentDto) {
     try {
-      const student = await this.studentService.create(body);
+      const student = await this.studentService.create(createStudentDto);
       return {
         success: true,
         data: student,
@@ -48,8 +50,8 @@ export class AdminStudentsController {
   }
 
   @Put(':id')
-  async update(@Param('id') id: string, @Body() body: any) {
-    return this.studentService.updateById(id, body);
+  async update(@Param('id') id: string, @Body() updateStudentDto: UpdateStudentDto) {
+    return this.studentService.updateById(id, updateStudentDto);
   }
 
   @Delete(':id')

@@ -2,6 +2,7 @@ import { Controller, Get, Put, UseGuards, Body, HttpException, HttpStatus } from
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
 import { AdminSettingsService } from './admin-settings.service';
+import { UpdateSettingsDto } from './dto/update-settings.dto';
 
 @Controller('api/admin/settings')
 @UseGuards(JwtAuthGuard, AdminGuard)
@@ -28,9 +29,9 @@ export class AdminSettingsController {
   }
 
   @Put()
-  async updateSettings(@Body() body: any) {
+  async updateSettings(@Body() updateSettingsDto: UpdateSettingsDto) {
     try {
-      const updatedSettings = await this.settingsService.updateSettings(body);
+      const updatedSettings = await this.settingsService.updateSettings(updateSettingsDto);
       return {
         success: true,
         message: 'Settings updated successfully',

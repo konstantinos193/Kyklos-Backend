@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ForbiddenException, BadRequestException 
 import { DatabaseService } from '../database/database.service';
 import { AdminService } from '../admin/admin.service';
 import { ObjectId } from 'mongodb';
+import { TeacherPermission, TeacherPermissionFilter } from './dto/teacher-permission.interface';
 
 @Injectable()
 export class TeacherPermissionsService {
@@ -37,13 +38,13 @@ export class TeacherPermissionsService {
     return true;
   }
 
-  async findAll(filters: any = {}, adminId: string) {
+  async findAll(filters: TeacherPermissionFilter = {}, adminId: string) {
     const admin = await this.adminService.findById(adminId);
     if (!admin || !['admin', 'super_admin', 'moderator'].includes(admin.role)) {
       throw new ForbiddenException('Unauthorized access');
     }
 
-    const query: any = {};
+    const query: Record<string, any> = {};
 
     if (filters.teacherId) {
       const teacherObjectId = this.toObjectId(filters.teacherId);
@@ -54,9 +55,10 @@ export class TeacherPermissionsService {
       if (materialObjectId) query.examMaterial = materialObjectId;
     }
     if (filters.permissionType) query.permissionType = filters.permissionType;
+    if (filters.action) query.action = filters.action;
 
-    const page = parseInt(filters.page) || 1;
-    const limit = parseInt(filters.limit) || 20;
+    const page = typeof filters.page === 'string' ? parseInt(filters.page) : (filters.page || 1);
+    const limit = typeof filters.limit === 'string' ? parseInt(filters.limit) : (filters.limit || 20);
     const skip = (page - 1) * limit;
 
     const collection = this.getCollection();
@@ -107,14 +109,14 @@ export class TeacherPermissionsService {
     };
   }
 
-  async create(data: any, adminId: string) {
+  async create(data: Partial<TeacherPermission>, adminId: string) {
     const admin = await this.adminService.findById(adminId);
     if (!admin || !['admin', 'super_admin', 'moderator'].includes(admin.role)) {
       throw new ForbiddenException('Unauthorized access');
     }
 
-    const teacherObjectId = this.toObjectId(data.teacherId);
-    const examMaterialObjectId = this.toObjectId(data.examMaterialId);
+    const teacherObjectId = this.toObjectId(data.teacherId || data.teacher);
+    const examMaterialObjectId = this.toObjectId(data.examMaterialId || data.examMaterial);
 
     if (!teacherObjectId || !examMaterialObjectId) {
       throw new BadRequestException('Invalid teacher or exam material ID');
@@ -173,7 +175,7 @@ export class TeacherPermissionsService {
     };
   }
 
-  async update(id: string, data: any, adminId: string) {
+  async update(id: string, data: Partial<TeacherPermission>, adminId: string) {
     const admin = await this.adminService.findById(adminId);
     if (!admin || !['admin', 'super_admin', 'moderator'].includes(admin.role)) {
       throw new ForbiddenException('Unauthorized access');
@@ -191,7 +193,7 @@ export class TeacherPermissionsService {
     }
 
     // Update fields
-    const updateFields: any = {};
+    const updateFields: Record<string, any> = {};
     if (data.permissionType) updateFields.permissionType = data.permissionType;
     if (data.expiresAt !== undefined) {
       updateFields.expiresAt = data.expiresAt ? new Date(data.expiresAt) : null;
@@ -287,7 +289,7 @@ export class TeacherPermissionsService {
     return userLevel >= requiredLevel;
   }
 
-  async getForTeacher(teacherId: string, filters: any = {}, adminId: string) {
+  async getForTeacher(teacherId: string, filters: TeacherPermissionFilter = {}, adminId: string) {
     const admin = await this.adminService.findById(adminId);
     if (!admin || !['admin', 'super_admin', 'moderator'].includes(admin.role)) {
       throw new ForbiddenException('Unauthorized access');
@@ -298,8 +300,8 @@ export class TeacherPermissionsService {
       throw new BadRequestException('Invalid teacher ID');
     }
 
-    const page = parseInt(filters.page) || 1;
-    const limit = parseInt(filters.limit) || 20;
+    const page = typeof filters.page === 'string' ? parseInt(filters.page) : (filters.page || 1);
+    const limit = typeof filters.limit === 'string' ? parseInt(filters.limit) : (filters.limit || 20);
     const skip = (page - 1) * limit;
 
     const collection = this.getCollection();
