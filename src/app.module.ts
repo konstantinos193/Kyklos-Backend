@@ -22,7 +22,6 @@ import { ExercisesModule } from './exercises/exercises.module';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: ['.env', '../.env'],
       expandVariables: true,
     }),
     MongooseModule.forRootAsync({
