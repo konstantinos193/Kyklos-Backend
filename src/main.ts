@@ -1,5 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
 import helmet from 'helmet';
 import compression from 'compression';
@@ -13,6 +14,7 @@ import { TransformInterceptor } from './common/interceptors/transform.intercepto
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const configService = app.get(ConfigService);
 
   // Cookie parser
   app.use(cookieParser());
@@ -56,7 +58,7 @@ async function bootstrap() {
 
   // CORS configuration
   const allowedOrigins = [
-    app.get('FRONTEND_URL')?.replace(/\/$/, ''),
+    configService.get('FRONTEND_URL')?.replace(/\/$/, ''),
     'https://kyklosedu.gr',
     'http://localhost:3000',
   ].filter(Boolean); // Remove undefined/null values
@@ -91,7 +93,7 @@ async function bootstrap() {
   });
 
   // Logging
-  if (app.get('NODE_ENV') === 'production') {
+  if (configService.get('NODE_ENV') === 'production') {
     app.use(morgan('combined'));
   } else {
     app.use(morgan('dev'));
@@ -137,10 +139,10 @@ async function bootstrap() {
     },
   });
 
-  const port = app.get('PORT') || 5000;
+  const port = configService.get('PORT') || 5000;
   await app.listen(port);
   logger.log(`🚀 Server running on port ${port}`);
-  logger.log(`📝 Environment: ${app.get('NODE_ENV') || 'development'}`);
+  logger.log(`📝 Environment: ${configService.get('NODE_ENV') || 'development'}`);
 }
 
 bootstrap();
