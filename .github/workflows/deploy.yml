@@ -24,35 +24,20 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           command_timeout: 30m
           script: |
+            set -e
             cd /root/kyklos-backend
-            
+
             # Pull latest code
             git pull origin main
-            
-            # Force remove green container if it exists (regardless of how it was created)
-            docker stop kyklos-backend-green || true
-            docker rm -f kyklos-backend-green || true
-            
-            # Build and deploy to green environment
-            docker compose --env-file .env.docker build kyklos-backend-green
-            docker compose --env-file .env.docker up -d kyklos-backend-green
-            
-            # Wait for green to be healthy
-            echo "Waiting for green container to be healthy..."
-            timeout 120 bash -c 'until docker inspect --format="{{.State.Health.Status}}" kyklos-backend-green 2>/dev/null | grep -q "healthy"; do sleep 5; done'
-            
-            # Switch traffic to green
-            sed -i 's/kyklos-backend-ACTIVE_BACKEND/kyklos-backend-green/g' nginx/conf.d/kyklos.conf
-            docker compose --env-file .env.docker restart nginx
-            
-            # Wait for nginx to reload
-            sleep 5
-            
-            # Verify green is serving traffic
-            curl -f http://localhost/api/health || exit 1
-            
-            # Cleanup blue environment
-            docker compose --env-file .env.docker stop kyklos-backend-blue || true
-            docker compose --env-file .env.docker rm -f kyklos-backend-blue || true
-            
-            echo "Deployment completed successfully"
+            chmod +x deploy-zero-downtime.sh
+
+            # Deploy into whichever colour is idle, so the live one keeps
+            # serving until the new container is healthy and nginx has been
+            # reloaded onto it.
+            if docker ps --format '{{.Names}}' | grep -qx kyklos-backend-green; then
+              COLOR=blue
+            else
+              COLOR=green
+            fi
+
+            ./deploy-zero-downtime.sh "$COLOR"

@@ -6,6 +6,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    # Set by deploy-zero-downtime.sh to kyklos-backend:dev-<N> so each deploy
+    # produces a distinct, monotonically named tag its keep-N cleanup can order.
+    image: ${BACKEND_IMAGE:-kyklos-backend:latest}
     container_name: kyklos-backend-blue
     restart: unless-stopped
     environment:
@@ -29,6 +32,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    image: ${BACKEND_IMAGE:-kyklos-backend:latest}
     container_name: kyklos-backend-green
     restart: unless-stopped
     environment:
