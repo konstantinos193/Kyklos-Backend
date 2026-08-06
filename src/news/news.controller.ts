@@ -11,6 +11,38 @@ import { UpdateNewsDto } from './dto/update-news.dto';
 export class NewsController {
   constructor(private readonly newsService: NewsService) {}
 
+  /**
+   * Uploads a cover image on its own and returns its URL.
+   *
+   * Creating a post requires an image, but the only other upload route is
+   * POST :id/image, which needs a post that already exists. That left the admin
+   * panel with nowhere to put a file, so the form asked for a pasted URL and
+   * nobody could publish. This breaks the cycle: upload first, then send the
+   * returned URL with the create request.
+   *
+   * Declared above the ':id' routes so the literal segment always wins.
+   */
+  @Post('upload-image')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  // The limit belongs here as well as on the validator below: multer buffers the
+  // whole body into heap first, so a validator alone would let an oversized
+  // upload allocate before anything rejects it. The host has 2GB of RAM.
+  @UseInterceptors(FilesInterceptor('image', 1, { limits: { fileSize: 10 * 1024 * 1024, files: 1 } }))
+  async uploadImage(
+    @UploadedFiles(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 10 * 1024 * 1024 }),
+          new FileTypeValidator({ fileType: /(png|jpeg|jpg|gif|webp)/ }),
+        ],
+        fileIsRequired: true,
+      }),
+    )
+    files: Express.Multer.File[],
+  ) {
+    return this.newsService.uploadCoverImage(files?.[0]);
+  }
+
   @Get()
   async findAll(
     @Query('page') page?: string,

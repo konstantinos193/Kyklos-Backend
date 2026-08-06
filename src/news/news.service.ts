@@ -1,4 +1,10 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  BadRequestException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { CacheService } from '../cache/cache.service';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
@@ -14,6 +20,8 @@ export class NewsService {
     NEWS_SINGLE: 600, // 10 minutes
     NEWS_TYPES: 1800, // 30 minutes
   };
+
+  private readonly logger = new Logger(NewsService.name);
 
   constructor(
     private readonly databaseService: DatabaseService,
@@ -472,6 +480,41 @@ export class NewsService {
     await this.cacheService.del('news:types');
 
     return await this.findById(id.toString());
+  }
+
+  /**
+   * Pushes a single cover image to Cloudinary and hands back its URL, so the
+   * admin panel can attach a file to a post that does not exist yet.
+   */
+  async uploadCoverImage(file: Express.Multer.File | undefined) {
+    if (!file) {
+      throw new BadRequestException('Δεν επιλέχθηκε αρχείο εικόνας');
+    }
+
+    try {
+      const uploaded = await this.cloudinaryService.uploadBuffer(
+        file.buffer,
+        'news-images',
+        'image',
+      );
+
+      return {
+        success: true,
+        data: {
+          url: uploaded.secureUrl || uploaded.url,
+          publicId: uploaded.publicId,
+        },
+      };
+    } catch (error: any) {
+      // Cloudinary's own message can carry account and configuration detail, so
+      // it is logged rather than returned. A failure here is the upstream being
+      // unavailable, not the administrator sending a bad file - answering 400
+      // would tell them to go and fix a file that is perfectly fine.
+      this.logger.error(`Cloudinary cover upload failed: ${error?.message ?? error}`);
+      throw new ServiceUnavailableException(
+        'Η υπηρεσία εικόνων δεν είναι διαθέσιμη αυτή τη στιγμή. Δοκιμάστε ξανά σε λίγο.',
+      );
+    }
   }
 }
 
