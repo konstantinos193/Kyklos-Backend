@@ -94,3 +94,5 @@ build/
 # Temporary files
 tmp/
 temp/
+# Generated per-deploy with the active blue/green colour; never restore a stale copy.
+nginx/conf.d/default.conf
