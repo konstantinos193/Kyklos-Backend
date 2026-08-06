@@ -1,9 +1,17 @@
 node_modules
 dist
 .git
+.github
 .env
 .env.*
 *.log
 coverage
 .nyc_output
 .DS_Store
+*.tsbuildinfo
+# Test assets and docs are never needed at build or runtime.
+test
+logs
+nginx
+*.md
+docker-compose*.yml
