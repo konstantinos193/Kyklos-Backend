@@ -16,6 +16,7 @@ import { ConfigService } from '@nestjs/config';
 import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
+import { AdminBootstrapGuard } from '../auth/guards/admin-bootstrap.guard';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { CreateAdminDto } from './dto/create-admin.dto';
@@ -30,6 +31,7 @@ export class AdminAuthController {
   ) {}
 
   @Post('create')
+  @UseGuards(AdminBootstrapGuard)
   @HttpCode(HttpStatus.CREATED)
   async createAdmin(@Body() createAdminDto: CreateAdminDto) {
     const { email, password, name, role = 'admin', isActive = true, permissions } = createAdminDto;

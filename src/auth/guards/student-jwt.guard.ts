@@ -31,7 +31,10 @@ export class StudentJwtGuard implements CanActivate {
       }
 
       const student = await this.studentService.findById(payload.studentId);
-      if (!student || student.status !== 'active') {
+      // Records created before `status` was written default to active, matching
+      // what AuthService.studentLogin already does. Without this, existing
+      // students authenticate successfully and are then refused everywhere.
+      if (!student || (student.status || 'active') !== 'active') {
         throw new UnauthorizedException('Μη έγκυρος μαθητής');
       }
 

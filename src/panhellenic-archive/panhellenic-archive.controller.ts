@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Controller,
   Get,
   Post,
@@ -20,8 +21,16 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
+import { randomBytes } from 'crypto';
+import * as fs from 'fs';
 import * as path from 'path';
 import { Response } from 'express';
+import {
+  ARCHIVE_MAX_FILE_SIZE,
+  ARCHIVE_UNSUPPORTED_TYPE_MESSAGE,
+  ARCHIVE_UPLOAD_DIR,
+  isAllowedArchiveFile,
+} from './panhellenic-archive.constants';
 import { PanhellenicArchiveService } from './panhellenic-archive.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
@@ -78,18 +87,34 @@ export class PanhellenicArchiveController {
   @UseGuards(JwtAuthGuard, AdminGuard)
   @UseInterceptors(
     FileInterceptor('file', {
+      // Reject anything that is not whitelisted BEFORE multer writes it to disk,
+      // otherwise every rejected upload leaves an orphan file behind.
+      fileFilter: (req, file, cb) => {
+        if (!isAllowedArchiveFile(file.mimetype, file.originalname)) {
+          cb(new BadRequestException(ARCHIVE_UNSUPPORTED_TYPE_MESSAGE), false);
+          return;
+        }
+        cb(null, true);
+      },
+      limits: {
+        fileSize: ARCHIVE_MAX_FILE_SIZE,
+        files: 1,
+      },
       storage: diskStorage({
         destination: (req, file, cb) => {
-          const uploadDir = path.join(process.cwd(), 'public', 'panhellenic-archive');
-          cb(null, uploadDir);
+          try {
+            // The directory can vanish between restarts (fresh volume, manual cleanup).
+            fs.mkdirSync(ARCHIVE_UPLOAD_DIR, { recursive: true });
+            cb(null, ARCHIVE_UPLOAD_DIR);
+          } catch (error: any) {
+            cb(error, ARCHIVE_UPLOAD_DIR);
+          }
         },
         filename: (req, file, cb) => {
-          // Handle UTF-8 filename encoding
-          const timestamp = Date.now();
-          const randomString = Math.random().toString(36).substring(2, 8);
-          const ext = path.extname(file.originalname);
-          const uniqueFileName = `${timestamp}-${randomString}${ext}`;
-          cb(null, uniqueFileName);
+          // Never reuse the client-supplied name on disk - it is attacker controlled.
+          // The extension is already whitelisted by fileFilter above.
+          const ext = path.extname(file.originalname).toLowerCase();
+          cb(null, `${Date.now()}-${randomBytes(8).toString('hex')}${ext}`);
         },
       }),
     })
@@ -98,9 +123,12 @@ export class PanhellenicArchiveController {
     @UploadedFile(
       new ParseFilePipe({
         validators: [
-          new MaxFileSizeValidator({ maxSize: 50 * 1024 * 1024 }), // 50MB
+          new MaxFileSizeValidator({ maxSize: ARCHIVE_MAX_FILE_SIZE }),
+          // diskStorage gives us no file.buffer, so magic-number sniffing is impossible
+          // here - without this flag NestJS 11 rejects every single upload.
           new FileTypeValidator({
-            fileType: /(pdf|png|jpeg|jpg|gif|doc|docx|xls|xlsx|ppt|pptx)/,
+            fileType: /^(application\/(pdf|msword|vnd\.ms-excel|vnd\.ms-powerpoint|vnd\.openxmlformats-officedocument\.[a-z]+ml\.[a-z]+)|image\/(png|jpe?g|gif))$/,
+            skipMagicNumbersValidation: true,
           }),
         ],
         fileIsRequired: true,
@@ -157,10 +185,14 @@ export class PanhellenicArchiveController {
     return this.archiveService.toggleActive(id, req.admin.id);
   }
 
+  // NOTE: @Res() is used WITHOUT passthrough on purpose. With passthrough the global
+  // TransformInterceptor wraps the handler's (undefined) return value and writes
+  // {"success":true,...} over the piped file, so the endpoint served JSON labelled
+  // as application/pdf instead of the document.
   @Get(':id/proxy')
   async proxyFile(
     @Param('id') id: string,
-    @Res({ passthrough: true }) res: Response,
+    @Res() res: Response,
     @Headers() headers: any,
   ) {
     // Rate limiting based on IP
@@ -178,7 +210,13 @@ export class PanhellenicArchiveController {
       const { stream, mimeType, fileName } = await this.archiveService.getFileStream(id);
 
       res.setHeader('Content-Type', mimeType);
-      res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
+      // Greek file names are not valid in a bare filename="..." parameter, so send an
+      // ASCII fallback plus the RFC 5987 encoded form.
+      const asciiName = fileName.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '_');
+      res.setHeader(
+        'Content-Disposition',
+        `inline; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(fileName)}`,
+      );
       res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
       res.setHeader('X-Content-Type-Options', 'nosniff');
       // Remove X-Frame-Options to allow embedding

@@ -88,6 +88,9 @@ export class StudentService {
     const studentData = {
       ...data,
       uniqueKey,
+      // StudentJwtGuard gates on an exact 'active' match, so a student created
+      // without this field could log in but was refused by every guarded route.
+      status: (data as any).status || 'active',
       registrationDate: new Date(),
       lastLogin: null,
       hasAccessToThemata: data.hasAccessToThemata !== undefined ? data.hasAccessToThemata : false,

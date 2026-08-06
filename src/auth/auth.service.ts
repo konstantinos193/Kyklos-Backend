@@ -101,7 +101,7 @@ export class AuthService {
         throw new UnauthorizedException('Student not found');
       }
 
-      if (student.status !== 'active') {
+      if ((student.status || 'active') !== 'active') {
         throw new UnauthorizedException('Account is not active');
       }
 
@@ -157,7 +157,7 @@ export class AuthService {
         throw new UnauthorizedException('Student not found');
       }
 
-      if (student.status !== 'active') {
+      if ((student.status || 'active') !== 'active') {
         throw new UnauthorizedException('Account is not active');
       }
 

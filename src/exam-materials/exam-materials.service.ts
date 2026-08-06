@@ -95,7 +95,7 @@ export class ExamMaterialsService {
 
   async findAllForStudent(studentId: string, filters: any = {}) {
     const student = await this.studentService.findById(studentId);
-    if (!student || student.status !== 'active') {
+    if (!student || (student.status || 'active') !== 'active') {
       throw new ForbiddenException('Μη έγκυρος μαθητής');
     }
 
@@ -156,7 +156,7 @@ export class ExamMaterialsService {
 
   async findByIdForStudent(id: string, studentId: string) {
     const student = await this.studentService.findById(studentId);
-    if (!student || student.status !== 'active') {
+    if (!student || (student.status || 'active') !== 'active') {
       throw new ForbiddenException('Μη έγκυρος μαθητής');
     }
 
@@ -190,7 +190,7 @@ export class ExamMaterialsService {
 
   async downloadForStudent(id: string, studentId: string) {
     const student = await this.studentService.findById(studentId);
-    if (!student || student.status !== 'active') {
+    if (!student || (student.status || 'active') !== 'active') {
       throw new ForbiddenException('Μη έγκυρος μαθητής');
     }
 

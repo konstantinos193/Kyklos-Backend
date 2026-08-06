@@ -6,6 +6,7 @@ import helmet from 'helmet';
 import compression from 'compression';
 import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
+import rateLimit from 'express-rate-limit';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
@@ -56,12 +57,88 @@ async function bootstrap() {
     }),
   );
 
+  // Rate limiting.
+  //
+  // The app sits behind nginx, so without trusting one proxy hop every request
+  // appears to come from the proxy and the limiters would throttle all users as
+  // a single client. One hop only - trusting the whole chain would let a caller
+  // spoof X-Forwarded-For and sidestep the limits entirely.
+  app.set('trust proxy', 1);
+
+  const windowMs = parseInt(configService.get('RATE_LIMIT_WINDOW_MS') || '900000', 10);
+  const authMax = parseInt(configService.get('AUTH_RATE_LIMIT_MAX') || '10', 10);
+  const publicWriteMax = parseInt(configService.get('PUBLIC_WRITE_RATE_LIMIT_MAX') || '20', 10);
+
+  const denied = (message: string) => ({ success: false, statusCode: 429, message });
+
+  // Deliberately no catch-all limiter. Pages are rendered server-side, so every
+  // SSR fetch reaches this API from the one frontend container address; a global
+  // per-IP cap would count the whole site's traffic as a single client and lock
+  // everyone out at once. Only the endpoints actually worth attacking are capped.
+  const limiter = (limit: number, message: string, skipSuccessfulRequests = false) =>
+    rateLimit({
+      windowMs,
+      limit,
+      skipSuccessfulRequests,
+      standardHeaders: 'draft-7',
+      legacyHeaders: false,
+      message: denied(message),
+    });
+
+  // Credentials. Successful sign-ins are not counted, so ordinary use never
+  // erodes the budget - only failures do.
+  const tooManyAttempts = 'Πάρα πολλές προσπάθειες. Δοκιμάστε ξανά αργότερα.';
+  app.use('/api/admin/auth/login', limiter(authMax, tooManyAttempts, true));
+  app.use('/api/admin/auth/create', limiter(authMax, tooManyAttempts, true));
+  app.use('/api/admin/auth/refresh', limiter(authMax, tooManyAttempts, true));
+  app.use('/api/auth/student-login', limiter(authMax, tooManyAttempts, true));
+
+  // Unauthenticated writes, throttled against spam rather than guessing.
+  const tooManyRequests = 'Πάρα πολλές αιτήσεις. Δοκιμάστε ξανά αργότερα.';
+  app.use('/api/contact', limiter(publicWriteMax, tooManyRequests));
+  app.use('/api/newsletter/subscribe', limiter(publicWriteMax, tooManyRequests));
+
+  logger.log(`Rate limiting: auth=${authMax}, public writes=${publicWriteMax} per ${windowMs}ms`);
+
   // CORS configuration
-  const allowedOrigins = [
-    configService.get('FRONTEND_URL')?.replace(/\/$/, ''),
+  const isProduction = configService.get('NODE_ENV') === 'production';
+
+  // An origin is only ever matched exactly, so every hostname the site is reachable
+  // on has to be listed. Missing the www variant silently breaks every API call for
+  // visitors who land on it.
+  const withWwwVariants = (origin: string): string[] => {
+    try {
+      const url = new URL(origin);
+      const bare = url.host.replace(/^www\./, '');
+      // Only real domains get a www counterpart - not localhost or bare IPs.
+      const isDomain = bare.includes('.') && !/^[\d.:]+$/.test(bare);
+      return isDomain
+        ? [`${url.protocol}//${bare}`, `${url.protocol}//www.${bare}`]
+        : [`${url.protocol}//${url.host}`];
+    } catch {
+      return [origin];
+    }
+  };
+
+  const configuredOrigins = [
+    configService.get('FRONTEND_URL'),
+    ...(configService.get('CORS_ORIGINS') ?? '').split(','),
     'https://kyklosedu.gr',
-    'http://localhost:3000',
-  ].filter(Boolean); // Remove undefined/null values
+  ]
+    .map((value: string | undefined) => value?.trim().replace(/\/$/, ''))
+    .filter((value): value is string => Boolean(value));
+
+  const allowedOrigins = Array.from(
+    new Set([
+      ...configuredOrigins.flatMap(withWwwVariants),
+      // Local development hosts must never be trusted by the production API.
+      ...(isProduction
+        ? []
+        : ['http://localhost:3000', 'http://localhost:8765', 'http://127.0.0.1:8765']),
+    ]),
+  );
+
+  logger.log(`CORS allowed origins: ${allowedOrigins.join(', ')}`);
 
   app.enableCors({
     origin: (origin, callback) => {

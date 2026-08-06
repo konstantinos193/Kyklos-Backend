@@ -1,0 +1,98 @@
+# Isolated e2e stack. Deliberately publishes no port that the existing
+# Laravel/hotelpoint stack on this host already owns (6379, 3306, 27017).
+services:
+  mongodb:
+    # 4.4 is the last release that runs without AVX, which this host's CPU lacks.
+    image: mongo:4.4
+    container_name: kyklos-e2e-mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: e2eroot
+      MONGO_INITDB_ROOT_PASSWORD: e2epass
+      MONGO_INITDB_DATABASE: kyklos_e2e
+    volumes:
+      - e2e-mongo-data:/data/db
+    networks: [kyklos-e2e]
+    healthcheck:
+      test: ["CMD", "mongo", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
+  redis:
+    image: redis:7-alpine
+    container_name: kyklos-e2e-redis
+    command: redis-server --requirepass e2eredispass --appendonly yes
+    networks: [kyklos-e2e]
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "e2eredispass", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # Upstash-compatible REST facade over Redis. CacheService talks REST over
+  # axios, so a plain redis:// URL can never work.
+  srh:
+    image: hiett/serverless-redis-http:latest
+    container_name: kyklos-e2e-srh
+    environment:
+      SRH_MODE: env
+      SRH_TOKEN: e2e_srh_token
+      SRH_CONNECTION_STRING: redis://:e2eredispass@redis:6379
+    depends_on:
+      redis: {condition: service_healthy}
+    networks: [kyklos-e2e]
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: kyklos-e2e-mailpit
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+    ports:
+      - "8025:8025"
+    networks: [kyklos-e2e]
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kyklos-e2e-backend
+    env_file: [.env.e2e]
+    depends_on:
+      mongodb: {condition: service_healthy}
+      srh: {condition: service_started}
+      mailpit: {condition: service_started}
+    ports:
+      - "7432:5000"
+    networks: [kyklos-e2e]
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:5000/api/health/fast',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+  frontend:
+    build:
+      context: ../Kyklos-frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://backend:5000
+    container_name: kyklos-e2e-frontend
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: http://backend:5000
+      PORT: 8765
+    depends_on:
+      backend: {condition: service_healthy}
+    ports:
+      - "8765:8765"
+    networks: [kyklos-e2e]
+
+networks:
+  kyklos-e2e:
+    name: kyklos-e2e
+
+volumes:
+  e2e-mongo-data:

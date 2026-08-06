@@ -13,6 +13,10 @@
     "baseUrl": "./",
     "ignoreDeprecations": "6.0",
     "incremental": true,
+    // Must live inside outDir: nest-cli deletes dist on every build, and a build info
+    // file that survives that makes TypeScript skip re-emitting unchanged files,
+    // producing a half-empty dist that crashes with MODULE_NOT_FOUND on start.
+    "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
     "skipLibCheck": true,
     "strictNullChecks": false,
     "noImplicitAny": false,

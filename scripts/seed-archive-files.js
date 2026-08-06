@@ -1,11 +1,11 @@
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../../production.env') });
 const { MongoClient } = require('mongodb');
 const fs = require('fs');
-const path = require('path');
 
 async function seedArchiveFiles() {
   const mongoUri = process.env.MONGODB_URI;
-  const dbName = process.env.MONGODB_DB_NAME || 'kyklos_frontistirio';
+  const dbName = 'kyklos_db';
 
   if (!mongoUri) {
     throw new Error('MONGODB_URI is not defined in environment variables.');

@@ -11,6 +11,9 @@ import { AdminService } from './admin.service';
 import { AdminSettingsService } from './admin-settings.service';
 import { StudentsModule } from '../students/students.module';
 import { AuthModule } from '../auth/auth.module';
+import { AdminBootstrapGuard } from '../auth/guards/admin-bootstrap.guard';
+import { AdminGuard } from '../auth/guards/admin.guard';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Module({
   imports: [
@@ -33,7 +36,7 @@ import { AuthModule } from '../auth/auth.module';
     AdminTeachersController,
     AdminManagementController,
   ],
-  providers: [AdminService, AdminSettingsService],
+  providers: [AdminService, AdminSettingsService, JwtAuthGuard, AdminGuard, AdminBootstrapGuard],
   exports: [AdminService],
 })
 export class AdminModule {}
