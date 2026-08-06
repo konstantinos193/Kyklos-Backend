@@ -27,8 +27,12 @@ jobs:
             set -e
             cd /root/kyklos-backend
 
-            # Pull latest code
-            git pull origin main
+            # Sync to origin/main. The host working tree is disposable: the
+            # only thing worth keeping is a copy of the live env file, in case
+            # it drifted from the tracked one.
+            cp -f .env.docker ".env.docker.bak.$(date +%s)" 2>/dev/null || true
+            git fetch origin main
+            git reset --hard origin/main
             chmod +x deploy-zero-downtime.sh
 
             # Deploy into whichever colour is idle, so the live one keeps
