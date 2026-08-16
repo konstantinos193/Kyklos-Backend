@@ -1,0 +1,21 @@
+# Weekly disk reclaim. Install with:
+#
+#   install -m 755 scripts/docker-reclaim.sh /usr/local/bin/docker-reclaim
+#   cp scripts/docker-reclaim.service scripts/docker-reclaim.timer /etc/systemd/system/
+#   systemctl daemon-reload && systemctl enable --now docker-reclaim.timer
+#
+# Check it: systemctl list-timers docker-reclaim
+# Read a run: journalctl -u docker-reclaim -n 40
+
+[Unit]
+Description=Weekly Docker disk reclaim
+
+[Timer]
+# Sunday 04:00, when nobody is deploying. Persistent so a run missed because the
+# box was off happens at the next boot rather than being skipped for a week.
+OnCalendar=Sun 04:00
+Persistent=true
+RandomizedDelaySec=600
+
+[Install]
+WantedBy=timers.target

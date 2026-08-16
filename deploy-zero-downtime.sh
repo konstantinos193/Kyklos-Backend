@@ -299,6 +299,35 @@ reclaim_disk() {
     docker image prune -f >/dev/null 2>&1 || true
     docker builder prune -f >/dev/null 2>&1 || true
 
+    # Images this project built under a name it no longer uses.
+    #
+    # `docker compose build` names its output <project>-<service>:latest --
+    # kyklos-backend-kyklos-backend-green:latest -- which is how every deploy
+    # before BACKEND_IMAGE existed tagged what it built. One of those sat here
+    # for seven weeks holding 3.77GB, in the blind spot between the two sweeps
+    # below: cleanup_old_images ranks any non-dev-N tag as newest and so never
+    # counts it as surplus, and the unreferenced sweep in the aggressive branch
+    # skips everything carrying the managed prefix.
+    #
+    # The repo name is what makes this safe. The canonical repo is left entirely
+    # to cleanup_old_images and its keep-N window; only the compose variants are
+    # considered here, and only when no container -- running or stopped --
+    # references the image, so a rollback target is never in scope.
+    local legacy_in_use legacy_ref legacy_id
+    legacy_in_use=$(in_use_image_ids)
+    docker images --format '{{.Repository}}:{{.Tag}}' \
+        | grep -v '^<none>' | grep -v ':<none>$' \
+        | grep -F "$MANAGED_IMAGE_PREFIX" \
+        | grep -v "^$MANAGED_IMAGE_PREFIX:" \
+        | while read -r legacy_ref; do
+            legacy_id=$(docker image inspect --format '{{.Id}}' "$legacy_ref" 2>/dev/null) || continue
+            if [ -n "$legacy_id" ] && printf '%s\n' "$legacy_in_use" | grep -qxF "$legacy_id"; then
+                echo -e "  ${YELLOW}pinned by a container, kept: $legacy_ref${NC}"
+            elif docker rmi "$legacy_ref" >/dev/null 2>&1; then
+                echo -e "  ${GREEN}removed image built under an old name: $legacy_ref${NC}"
+            fi
+        done
+
     local repo
     for repo in $(docker images --format '{{.Repository}}' \
                     | grep -F "$MANAGED_IMAGE_PREFIX" | sort -u); do

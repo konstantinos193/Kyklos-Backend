@@ -1,5 +1,16 @@
 version: '3.8'
 
+# Container stdout is written to an unbounded json file by default, and mongo
+# logs a line per connection opened and closed - 269MB of "Connection ended" on
+# a 23GB disk that the deploy refuses to run on below 2GB free. Three 10MB files
+# per container is more history than anyone reads and a ceiling that cannot
+# creep. Applied when a container is next recreated, not to a running one.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   # Blue environment (current production)
   kyklos-backend-blue:
@@ -11,6 +22,7 @@ services:
     image: ${BACKEND_IMAGE:-kyklos-backend:latest}
     container_name: kyklos-backend-blue
     restart: unless-stopped
+    logging: *default-logging
     environment:
       - NODE_ENV=production
       - PORT=5000
@@ -35,6 +47,7 @@ services:
     image: ${BACKEND_IMAGE:-kyklos-backend:latest}
     container_name: kyklos-backend-green
     restart: unless-stopped
+    logging: *default-logging
     environment:
       - NODE_ENV=production
       - PORT=5000
@@ -56,6 +69,7 @@ services:
     image: nginx:alpine
     container_name: kyklos-nginx
     restart: unless-stopped
+    logging: *default-logging
     ports:
       - "8081:80"
       - "8444:443"
@@ -72,6 +86,7 @@ services:
     image: mongo:7.0
     container_name: kyklos-mongodb
     restart: unless-stopped
+    logging: *default-logging
     env_file:
       - .env.docker
     environment:
@@ -97,6 +112,7 @@ services:
     image: redis:7-alpine
     container_name: kyklos-redis
     restart: unless-stopped
+    logging: *default-logging
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
     volumes:
       - redis-data:/data

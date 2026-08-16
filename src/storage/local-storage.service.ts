@@ -1,4 +1,4 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import sharp from 'sharp';
 import { createHash } from 'crypto';
@@ -37,13 +37,31 @@ export interface StoredFile {
 sharp.concurrency(1);
 
 @Injectable()
-export class LocalStorageService {
+export class LocalStorageService implements OnModuleInit {
   private readonly logger = new Logger(LocalStorageService.name);
 
   /** Tail of the encode queue. Awaiting it serialises the next job behind it. */
   private encodeQueue: Promise<unknown> = Promise.resolve();
 
   constructor(private readonly configService: ConfigService) {}
+
+  /**
+   * Proves at boot that uploads can be written.
+   *
+   * public/ is a Docker volume, owned by whoever created it. If that is root
+   * and this process is not, every upload fails with EACCES - at the moment an
+   * administrator presses save, not at the moment the container started. This
+   * puts it in the startup log instead, where it is findable.
+   */
+  async onModuleInit(): Promise<void> {
+    if (await this.healthCheck()) {
+      this.logger.log(`Upload root ready: ${UPLOAD_ROOT}`);
+    } else {
+      this.logger.error(
+        `Upload root is not writable: ${UPLOAD_ROOT}. Uploads will fail until it is.`,
+      );
+    }
+  }
 
   /**
    * Where the browser reaches a stored file.

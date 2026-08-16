@@ -1,0 +1,12 @@
+[Unit]
+Description=Docker disk reclaim
+# Pointless to run before the daemon it talks to.
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/docker-reclaim
+# A failed reclaim must not mark the host degraded - it frees what it can and
+# the next run tries again.
+SuccessExitStatus=0 1
