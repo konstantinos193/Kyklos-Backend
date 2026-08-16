@@ -4,19 +4,34 @@
 # included - into a second 496MB layer. Ownership is now set by COPY --chown,
 # which costs nothing, and only production dependencies reach the final stage.
 
+# pnpm, not yarn: both `typescript` (20 Go binaries since 7.0) and `sharp`
+# publish one optionalDependency per OS/arch, and yarn 1 ignores their os/cpu
+# fields when *fetching* - it downloads all 45, links the 2 it needs, and
+# discards the rest. Twice, once per install stage. That is what filled the
+# deploy host's disk (ENOSPC). pnpm honours os/cpu and fetches only linux-x64.
+#
+# node-linker=hoisted because node_modules is copied between stages below:
+# pnpm's default symlink farm survives COPY --from, but a flat tree removes
+# any doubt and costs nothing in a throwaway image.
+ARG PNPM_FLAGS="--frozen-lockfile --config.node-linker=hoisted"
+
 # ---- production dependencies only ----
 FROM node:22-alpine AS prod-deps
+ARG PNPM_FLAGS
+RUN corepack enable
 WORKDIR /app
-COPY package.json yarn.lock ./
-RUN yarn install --frozen-lockfile --production=true && yarn cache clean
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN pnpm install --prod $PNPM_FLAGS && pnpm store prune
 
-# ---- build (needs devDependencies for the Nest CLI and TypeScript) ----
+# ---- build (needs devDependencies for TypeScript) ----
 FROM node:22-alpine AS build
+ARG PNPM_FLAGS
+RUN corepack enable
 WORKDIR /app
-COPY package.json yarn.lock ./
-RUN yarn install --frozen-lockfile
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN pnpm install $PNPM_FLAGS
 COPY . .
-RUN yarn build
+RUN pnpm build
 
 # ---- runtime ----
 FROM node:22-alpine AS runtime
