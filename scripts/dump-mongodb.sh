@@ -23,12 +23,26 @@ log_error() {
     echo -e "${RED}[$(date +'%Y-%m-%d %H:%M:%S')]${NC} ✗ $1"
 }
 
-# Configuration
-MONGODB_URI="mongodb+srv://konstantinosblavakis_db_user:7o1dMcqLBSC13Gmg@cluster0.crmxcxc.mongodb.net/kyklos_db?retryWrites=true&w=majority&appName=Cluster0"
-DB_NAME="kyklos_db"
-DUMP_DIR="./mongodb-dump"
-VPS_HOST="root@194.99.21.157"
-VPS_DUMP_DIR="/tmp/mongodb-dump"
+# Configuration.
+#
+# The connection string is taken from the environment and is never written down
+# here. This file had the live Atlas URI - username, password and cluster -
+# committed into a public repository, where GitHub's secret scanner found it.
+#
+# Supply it per run, from the env file that is no longer tracked:
+#
+#   set -a; . ./.env.docker; set +a; ./scripts/dump-mongodb.sh
+#
+# or explicitly:
+#
+#   MONGODB_URI='mongodb+srv://...' VPS_HOST=root@host ./scripts/dump-mongodb.sh
+: "${MONGODB_URI:?set MONGODB_URI (see the comment above) - refusing to guess}"
+
+DB_NAME="${DB_NAME:-kyklos_db}"
+DUMP_DIR="${DUMP_DIR:-./mongodb-dump}"
+# Not a credential, and every other script here names it, so it keeps a default.
+VPS_HOST="${VPS_HOST:-root@194.99.21.157}"
+VPS_DUMP_DIR="${VPS_DUMP_DIR:-/tmp/mongodb-dump}"
 
 log "Starting MongoDB dump process..."
 

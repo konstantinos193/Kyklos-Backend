@@ -4,8 +4,14 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Environment variables
+# Environment variables.
+#
+# .env.docker holds the live Atlas URI, the JWT secret and the Redis password.
+# It was tracked until GitHub's secret scanner flagged it in this public repo;
+# the template is .env.docker.example and the real file stays on the host.
 .env
+.env.docker
+.env.docker.bak.*
 .env.local
 .env.development.local
 .env.test.local
