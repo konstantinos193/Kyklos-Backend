@@ -74,8 +74,8 @@ Kyklos-Backend/
 │   ├── blog/              # Public blog routes (read-only access)
 │   ├── config/            # Configuration files (the dark arts)
 │   │   ├── database.ts    # Database connection (don't touch this)
-│   │   ├── cloudinary.ts  # Image upload configuration
 │   │   └── email.ts       # Email service configuration
+│   ├── storage/           # Local file storage (sharp/AVIF, on this host's disk)
 │   ├── middleware/        # Express middleware (the bouncers)
 │   │   ├── auth.ts        # Authentication middleware (gatekeeper)
 │   │   ├── cors.ts        # CORS configuration (border control)
@@ -100,12 +100,12 @@ Kyklos-Backend/
 │   ├── app.module.ts      # Main application module (the heart)
 │   └── main.ts            # Application entry point (the birth)
 ├── scripts/               # Utility scripts (the maintenance crew)
-│   ├── reset-database.js  # Database reset button (the big red button)
-│   └── reset-cloudinary.js # Cloudinary reset (digital spring cleaning)
+│   └── reset-database.js  # Database reset button (the big red button)
 ├── public/                # Static assets (the public square)
 │   ├── math/              # Math resources (numbers and stuff)
 │   ├── physics/           # Physics resources (things that go boom)
-│   └── ximia/             # Educational materials (the good stuff)
+│   ├── ximia/             # Educational materials (the good stuff)
+│   └── uploads/           # Everything uploaded through the admin panel
 ├── tests/                 # Test files (the torture chamber)
 ├── .env.example           # Environment variables template (the cheat sheet)
 ├── package.json           # Dependencies and scripts (the recipe book)
@@ -161,7 +161,7 @@ cp env.example .env
 - `MONGODB_URI` - MongoDB connection string (the database lifeline)
 - `JWT_SECRET` - JWT secret for authentication (make it long and random)
 - `FRONTEND_URL` - Frontend URL for CORS (where the frontend lives)
-- `CLOUDINARY_*` - Cloudinary credentials for image uploads (cloud storage magic)
+- `PUBLIC_ASSET_BASE_URL` - Origin uploaded files are served from (this API's own host)
 - `EMAIL_*` - Email configuration for newsletter and contact forms (digital post office)
 - `UPSTASH_REDIS_*` - Redis cache configuration (short-term memory)
 

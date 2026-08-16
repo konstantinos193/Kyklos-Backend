@@ -1,5 +1,11 @@
+# If pnpm ever appends a package here with the placeholder value
+# "set this to true or false", replace it with a real boolean -- anything else
+# leaves the build ignored and fails install with ERR_PNPM_IGNORED_BUILDS.
+# sharp needs its native binary, so it must be allowed to build.
 allowBuilds:
-  unrs-resolver: set this to true or false
+  '@swc/core': true
+  sharp: true
+  unrs-resolver: true
 minimumReleaseAgeExclude:
   - '@nestjs/cli@11.0.22'
   - '@nestjs/common@11.1.26'

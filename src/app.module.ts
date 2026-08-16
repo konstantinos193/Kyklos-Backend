@@ -17,6 +17,7 @@ import { HealthModule } from './health/health.module';
 import { EmailModule } from './email/email.module';
 import { PanhellenicArchiveModule } from './panhellenic-archive/panhellenic-archive.module';
 import { ExercisesModule } from './exercises/exercises.module';
+import { EpityxontesModule } from './epityxontes/epityxontes.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { ExercisesModule } from './exercises/exercises.module';
     HealthModule,
     PanhellenicArchiveModule,
     ExercisesModule,
+    EpityxontesModule,
   ],
   controllers: [AppController],
 })

@@ -2,10 +2,10 @@ import { Module } from '@nestjs/common';
 import { NewsController } from './news.controller';
 import { NewsService } from './news.service';
 import { AuthModule } from '../auth/auth.module';
-import { CloudinaryModule } from '../cloudinary/cloudinary.module';
+import { StorageModule } from '../storage/storage.module';
 
 @Module({
-  imports: [AuthModule, CloudinaryModule],
+  imports: [AuthModule, StorageModule],
   controllers: [NewsController],
   providers: [NewsService],
   exports: [NewsService],

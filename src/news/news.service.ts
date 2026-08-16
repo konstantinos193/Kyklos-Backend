@@ -7,10 +7,11 @@ import {
 } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { CacheService } from '../cache/cache.service';
-import { CloudinaryService } from '../cloudinary/cloudinary.service';
+import { LocalStorageService } from '../storage/local-storage.service';
 import { ObjectId } from 'mongodb';
 import { NewsType } from './dto/create-news.dto';
 import { News } from './dto/news.interface';
+import { slugify, uniqueSlug } from './slug.util';
 
 @Injectable()
 export class NewsService {
@@ -26,7 +27,7 @@ export class NewsService {
   constructor(
     private readonly databaseService: DatabaseService,
     private readonly cacheService: CacheService,
-    private readonly cloudinaryService: CloudinaryService,
+    private readonly storageService: LocalStorageService,
   ) {}
 
   private getCollection() {
@@ -42,20 +43,86 @@ export class NewsService {
     return id;
   }
 
-  private generateSlug(title: string): string {
-    return title
-      .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .replace(/-+/g, '-')
-      .trim();
+  /**
+   * A slug that transliterates Greek and does not collide with an existing
+   * post. `excludeId` keeps a post from being treated as its own duplicate
+   * when it is saved again under the same title.
+   */
+  private async generateSlug(title: string, excludeId?: ObjectId): Promise<string> {
+    const collection = this.getCollection();
+
+    return uniqueSlug(slugify(title), async (candidate) => {
+      const filter: any = { slug: candidate };
+      if (excludeId) filter._id = { $ne: excludeId };
+      return (await collection.countDocuments(filter, { limit: 1 })) > 0;
+    });
   }
 
   private calculateReadTime(content: string): string {
     const wordsPerMinute = 200;
-    const wordCount = content.split(/\s+/).length;
-    const minutes = Math.ceil(wordCount / wordsPerMinute);
+    // Tags are not words. Counting them inflated the estimate on any post that
+    // used formatting, which is now every post.
+    const text = content
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&[a-z]+;/gi, ' ')
+      .trim();
+    const wordCount = text ? text.split(/\s+/).length : 0;
+    const minutes = Math.max(1, Math.ceil(wordCount / wordsPerMinute));
     return `${minutes} λεπτά`;
+  }
+
+  /**
+   * The listing behind the admin panel.
+   *
+   * `findAll` pins `status: 'published'` because it answers public requests, so
+   * an administrator using it could never see a draft — the drafts existed, and
+   * nothing in the product could show them. This is the same query without that
+   * pin, on a guarded route, and deliberately uncached: someone who just saved
+   * a post expects to see it in the list, not in five minutes.
+   */
+  async findAllForAdmin(query: {
+    page?: number;
+    limit?: number;
+    type?: NewsType;
+    status?: string;
+    search?: string;
+  }) {
+    const { page = 1, limit = 20, type, status, search } = query;
+    const filter: any = {};
+
+    if (type) filter.type = type;
+    if (status) filter.status = status;
+    if (search) {
+      filter.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { excerpt: { $regex: search, $options: 'i' } },
+        { tags: { $in: [new RegExp(search, 'i')] } },
+      ];
+    }
+
+    const collection = this.getCollection();
+    const total = await collection.countDocuments(filter);
+
+    const data = await collection
+      .find(filter)
+      // Newest first by the date the administrator set, falling back to
+      // creation for rows that predate a publish date.
+      .sort({ publishDate: -1, createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .toArray();
+
+    return {
+      success: true,
+      data,
+      pagination: {
+        current: page,
+        pages: Math.ceil(total / limit),
+        total,
+        hasNext: page * limit < total,
+        hasPrev: page > 1,
+      },
+    };
   }
 
   async findAll(query: {
@@ -137,6 +204,32 @@ export class NewsService {
       cached: false,
       timestamp: new Date().toISOString(),
     };
+  }
+
+  /**
+   * Looks a post up by id or slug without caring whether it is public.
+   *
+   * `findById` answers the public route and so only ever returns published
+   * posts. Everything behind the admin guard — loading a draft into the
+   * editor, attaching a file to one — needs the post regardless of status, and
+   * used to get a 404 instead. Uncached and without a view count, because
+   * neither belongs to an editing session.
+   */
+  private async findRawById(id: string) {
+    const objectId = this.toObjectId(id);
+
+    return this.getCollection().findOne({
+      $or: objectId ? [{ _id: objectId }, { slug: id }] : [{ slug: id }],
+    });
+  }
+
+  async findByIdForAdmin(id: string) {
+    const post = await this.findRawById(id);
+    if (!post) {
+      throw new NotFoundException('News post not found');
+    }
+
+    return { success: true, data: post, cached: false };
   }
 
   async findById(id: string) {
@@ -232,10 +325,9 @@ export class NewsService {
   async create(data: Partial<News>) {
     const collection = this.getCollection();
 
-    // Generate slug if not provided
-    if (!data.slug && data.title) {
-      data.slug = this.generateSlug(data.title);
-    }
+    // The editor sends a slug of its own; either way it has to be unique, and
+    // slugifying an already-slugified string leaves it unchanged.
+    data.slug = await this.generateSlug(data.slug || data.title || '');
 
     // Calculate read time if not provided
     if (!data.readTime && data.content) {
@@ -271,9 +363,10 @@ export class NewsService {
       throw new NotFoundException('Invalid news post ID');
     }
 
-    // Generate slug if title is being updated
-    if (data.title && !data.slug) {
-      data.slug = this.generateSlug(data.title);
+    // Re-derive the slug whenever either half of it moves, excluding this post
+    // so re-saving under the same title doesn't append a counter each time.
+    if (data.slug || data.title) {
+      data.slug = await this.generateSlug(data.slug || data.title, objectId);
     }
 
     // Calculate read time if content is being updated
@@ -317,6 +410,15 @@ export class NewsService {
       throw new NotFoundException('News post not found');
     }
 
+    // The files are ours now, not a third party's, so a deleted post takes its
+    // cover and attachments off the disk with it. Deletion never throws, so a
+    // missing file cannot fail a request whose record is already gone.
+    const deleted = result as any;
+    await this.storageService.delete(deleted?.image?.publicId);
+    for (const attachment of deleted?.attachments ?? []) {
+      await this.storageService.delete(attachment?.publicId);
+    }
+
     // Clear related caches
     await this.cacheService.delPattern('news:list:*');
     await this.cacheService.delPattern('news:type:*');
@@ -338,7 +440,7 @@ export class NewsService {
   }
 
   async addFiles(id: string | ObjectId, files: Express.Multer.File[]) {
-    const post = await this.findById(id.toString());
+    const post = await this.findByIdForAdmin(id.toString());
     if (!post || !post.success) {
       throw new NotFoundException('News post not found');
     }
@@ -355,14 +457,14 @@ export class NewsService {
     if (files && files.length > 0) {
       for (const file of files) {
         try {
-          const cloudinaryResult = await this.cloudinaryService.uploadFile(
-            file,
-            'news',
-          );
+          // Attachments are downloaded rather than rendered, so they are stored
+          // byte for byte - a worksheet has to come back out as the file the
+          // teacher uploaded.
+          const stored = await this.storageService.saveRawFile(file, 'news-attachments');
           uploadedFiles.push({
-            url: cloudinaryResult.url,
-            secureUrl: cloudinaryResult.secureUrl,
-            publicId: cloudinaryResult.publicId,
+            url: stored.url,
+            secureUrl: stored.secureUrl,
+            publicId: stored.publicId,
             fileName: file.originalname,
             fileType: file.mimetype,
             fileSize: file.size,
@@ -390,11 +492,11 @@ export class NewsService {
     await this.cacheService.del(`news:single:${id.toString()}`);
     await this.cacheService.del('news:types');
 
-    return await this.findById(id.toString());
+    return await this.findByIdForAdmin(id.toString());
   }
 
   async updateImage(id: string, file: Express.Multer.File | undefined, imageData: { alt?: string; caption?: string }) {
-    const post = await this.findById(id);
+    const post = await this.findByIdForAdmin(id);
     if (!post || !post.success) {
       throw new NotFoundException('News post not found');
     }
@@ -414,13 +516,27 @@ export class NewsService {
 
     // Upload new image if provided
     if (file) {
+      const previousPublicId = postData?.image?.publicId;
+
       try {
-        const cloudinaryResult = await this.cloudinaryService.uploadFile(file, 'news');
-        updateData['image.url'] = cloudinaryResult.secureUrl;
-        updateData['image.publicId'] = cloudinaryResult.publicId;
+        const stored = await this.storageService.saveImage(file, 'news');
+        updateData['image.url'] = stored.secureUrl;
+        updateData['image.publicId'] = stored.publicId;
+        updateData['image.width'] = stored.width;
+        updateData['image.height'] = stored.height;
       } catch (error) {
-        console.error('Error uploading image:', error);
-        throw new BadRequestException('Failed to upload image');
+        this.logger.error(`Cover image replacement failed: ${(error as Error)?.message ?? error}`);
+        throw error instanceof BadRequestException
+          ? error
+          : new BadRequestException('Η εικόνα δεν μπόρεσε να αποθηκευτεί');
+      }
+
+      // The old file is only unlinked once the new one is safely on disk, and
+      // only when the digest actually changed - re-saving the same photo
+      // resolves to the same path, which would otherwise delete what was just
+      // written.
+      if (previousPublicId && previousPublicId !== updateData['image.publicId']) {
+        await this.storageService.delete(previousPublicId);
       }
     }
 
@@ -446,7 +562,7 @@ export class NewsService {
   }
 
   async deleteFile(id: string | ObjectId, filePublicId: string) {
-    const post = await this.findById(id.toString());
+    const post = await this.findByIdForAdmin(id.toString());
     if (!post || !post.success) {
       throw new NotFoundException('News post not found');
     }
@@ -457,11 +573,7 @@ export class NewsService {
       throw new NotFoundException('File not found');
     }
 
-    try {
-      await this.cloudinaryService.deleteFile(filePublicId);
-    } catch (error) {
-      console.error('Error deleting file from Cloudinary:', error);
-    }
+    await this.storageService.delete(filePublicId);
 
     const collection = this.getCollection();
     const objectId = this.toObjectId(id);
@@ -479,12 +591,16 @@ export class NewsService {
     await this.cacheService.del(`news:single:${id.toString()}`);
     await this.cacheService.del('news:types');
 
-    return await this.findById(id.toString());
+    return await this.findByIdForAdmin(id.toString());
   }
 
   /**
-   * Pushes a single cover image to Cloudinary and hands back its URL, so the
+   * Stores a single cover image on this host and hands back its URL, so the
    * admin panel can attach a file to a post that does not exist yet.
+   *
+   * The file is resized, stripped of metadata and re-encoded once, here - never
+   * per request. What lands on disk is what nginx will hand out unchanged for
+   * the rest of its life.
    */
   async uploadCoverImage(file: Express.Multer.File | undefined) {
     if (!file) {
@@ -492,27 +608,29 @@ export class NewsService {
     }
 
     try {
-      const uploaded = await this.cloudinaryService.uploadBuffer(
-        file.buffer,
-        'news-images',
-        'image',
-      );
+      const stored = await this.storageService.saveImage(file, 'news');
 
       return {
         success: true,
         data: {
-          url: uploaded.secureUrl || uploaded.url,
-          publicId: uploaded.publicId,
+          url: stored.secureUrl,
+          publicId: stored.publicId,
+          width: stored.width,
+          height: stored.height,
+          bytes: stored.bytes,
         },
       };
     } catch (error: any) {
-      // Cloudinary's own message can carry account and configuration detail, so
-      // it is logged rather than returned. A failure here is the upstream being
-      // unavailable, not the administrator sending a bad file - answering 400
-      // would tell them to go and fix a file that is perfectly fine.
-      this.logger.error(`Cloudinary cover upload failed: ${error?.message ?? error}`);
+      // A rejected file is the administrator's problem and says so; anything
+      // else is this host's problem - a full disk, a broken mount - and its
+      // message is logged rather than returned.
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+
+      this.logger.error(`Cover image storage failed: ${error?.message ?? error}`);
       throw new ServiceUnavailableException(
-        'Η υπηρεσία εικόνων δεν είναι διαθέσιμη αυτή τη στιγμή. Δοκιμάστε ξανά σε λίγο.',
+        'Η αποθήκευση της εικόνας απέτυχε. Δοκιμάστε ξανά σε λίγο.',
       );
     }
   }

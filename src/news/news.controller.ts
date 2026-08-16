@@ -33,7 +33,7 @@ export class NewsController {
       new ParseFilePipe({
         validators: [
           new MaxFileSizeValidator({ maxSize: 10 * 1024 * 1024 }),
-          new FileTypeValidator({ fileType: /(png|jpeg|jpg|gif|webp)/ }),
+          new FileTypeValidator({ fileType: /(png|jpeg|jpg|gif|webp|avif|tiff)/ }),
         ],
         fileIsRequired: true,
       }),
@@ -88,6 +88,35 @@ export class NewsController {
   @Get('universities')
   async getUniversities() {
     return this.newsService.getByType(NewsType.UNIVERSITIES);
+  }
+
+  /**
+   * Declared above `:id` on purpose — a route parameter would otherwise swallow
+   * "admin" and look for a post with that id.
+   */
+  @Get('admin')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async findAllForAdmin(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('type') type?: NewsType,
+    @Query('status') status?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.newsService.findAllForAdmin({
+      page: page ? parseInt(page) : undefined,
+      limit: limit ? parseInt(limit) : undefined,
+      type,
+      status,
+      search,
+    });
+  }
+
+  /** Loads a post into the editor whatever its status, drafts included. */
+  @Get('admin/:id')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async findOneForAdmin(@Param('id') id: string) {
+    return this.newsService.findByIdForAdmin(id);
   }
 
   @Get(':id')
@@ -145,7 +174,7 @@ export class NewsController {
         validators: [
           new MaxFileSizeValidator({ maxSize: 10 * 1024 * 1024 }), // 10MB for images
           new FileTypeValidator({
-            fileType: /(png|jpeg|jpg|gif|webp)/,
+            fileType: /(png|jpeg|jpg|gif|webp|avif|tiff)/,
           }),
         ],
         fileIsRequired: false,

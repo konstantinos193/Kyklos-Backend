@@ -8,7 +8,7 @@ import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 import { NestExpressApplication } from '@nestjs/platform-express';
-import { join } from 'path';
+import { join, sep } from 'path';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 
@@ -40,6 +40,30 @@ async function bootstrap() {
   app.use((req, res, next) => {
     res.removeHeader('X-Frame-Options');
     res.removeHeader('x-frame-options');
+    next();
+  });
+
+  // Keep this host out of the search index.
+  //
+  // The archive page links straight at files on api.kyklosedu.gr, so crawlers
+  // walked onto the host and Search Console started reporting the API root as
+  // "Crawled - currently not indexed". This API is machinery, not content:
+  // everything outside /public/ is marked noindex so Google drops it, while the
+  // archive PDFs under /public/ stay eligible.
+  //
+  // Crawling is deliberately left open - blocking the host in robots.txt would
+  // stop Google fetching these URLs at all, and a URL that is never fetched can
+  // never report its noindex.
+  app.use((req, res, next) => {
+    if (req.path === '/robots.txt') {
+      res.type('text/plain').send('User-agent: *\nAllow: /public/\nDisallow: /api/\n');
+      return;
+    }
+
+    if (!req.path.startsWith('/public/')) {
+      res.setHeader('X-Robots-Tag', 'noindex');
+    }
+
     next();
   });
 
@@ -198,6 +222,21 @@ async function bootstrap() {
   app.useStaticAssets(join(__dirname, '..', 'public'), {
     prefix: '/public/',
     setHeaders: (res, path, stat) => {
+      // Everything under /public/ exists to be embedded by the site, which is
+      // on another origin. Helmet defaults every response to
+      // Cross-Origin-Resource-Policy: same-origin, and a browser drops a
+      // cross-origin <img> that carries it - the cover images would load in a
+      // tab of their own and nowhere else.
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+
+      // Uploads are named after a digest of their own bytes, so a given URL can
+      // never point at different content. That makes them safe to cache
+      // permanently - the browser stops revalidating, and a changed image is a
+      // changed URL rather than a stale one.
+      if (path.includes(`${sep}uploads${sep}`)) {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      }
+
       // Set proper headers for PDF files to allow embedding
       if (path.endsWith('.pdf')) {
         res.setHeader('Content-Type', 'application/pdf');

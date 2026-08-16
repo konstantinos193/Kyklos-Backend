@@ -1,7 +1,7 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { ObjectId } from 'mongodb';
-import { CloudinaryService } from '../cloudinary/cloudinary.service';
+import { LocalStorageService } from '../storage/local-storage.service';
 import { AdminService } from '../admin/admin.service';
 import { StudentService } from '../students/students.service';
 
@@ -11,7 +11,7 @@ export class ExercisesService {
 
   constructor(
     private readonly databaseService: DatabaseService,
-    private readonly cloudinaryService: CloudinaryService,
+    private readonly storageService: LocalStorageService,
     private readonly adminService: AdminService,
     private readonly studentService: StudentService,
   ) {}
@@ -49,7 +49,8 @@ export class ExercisesService {
       throw new NotFoundException('Teacher not found');
     }
 
-    // Upload files to Cloudinary
+    // Store files on this host. Exercise material is downloaded, not rendered,
+    // so it is written byte for byte rather than re-encoded.
     const uploadedFiles: Array<{
       url: string;
       secureUrl: string;
@@ -62,20 +63,17 @@ export class ExercisesService {
     if (files && files.length > 0) {
       for (const file of files) {
         try {
-          const cloudinaryResult = await this.cloudinaryService.uploadFile(
-            file,
-            'exercises',
-          );
+          const stored = await this.storageService.saveRawFile(file, 'exercises');
           uploadedFiles.push({
-            url: cloudinaryResult.url,
-            secureUrl: cloudinaryResult.secureUrl,
-            publicId: cloudinaryResult.publicId,
+            url: stored.url,
+            secureUrl: stored.secureUrl,
+            publicId: stored.publicId,
             fileName: file.originalname,
             fileType: file.mimetype,
             fileSize: file.size,
           });
         } catch (error) {
-          console.error('Error uploading file:', error);
+          console.error('Error storing file:', error);
           throw new BadRequestException(`Failed to upload file: ${file.originalname}`);
         }
       }
@@ -201,14 +199,10 @@ export class ExercisesService {
       throw new NotFoundException('Exercise not found');
     }
 
-    // Delete files from Cloudinary
+    // Take the files off the disk with the record they belonged to.
     if (exercise.files && exercise.files.length > 0) {
       for (const file of exercise.files) {
-        try {
-          await this.cloudinaryService.deleteFile(file.publicId);
-        } catch (error) {
-          console.error('Error deleting file from Cloudinary:', error);
-        }
+        await this.storageService.delete(file.publicId);
       }
     }
 
@@ -239,14 +233,11 @@ export class ExercisesService {
     if (files && files.length > 0) {
       for (const file of files) {
         try {
-          const cloudinaryResult = await this.cloudinaryService.uploadFile(
-            file,
-            'exercises',
-          );
+          const stored = await this.storageService.saveRawFile(file, 'exercises');
           uploadedFiles.push({
-            url: cloudinaryResult.url,
-            secureUrl: cloudinaryResult.secureUrl,
-            publicId: cloudinaryResult.publicId,
+            url: stored.url,
+            secureUrl: stored.secureUrl,
+            publicId: stored.publicId,
             fileName: file.originalname,
             fileType: file.mimetype,
             fileSize: file.size,
@@ -282,12 +273,7 @@ export class ExercisesService {
       throw new NotFoundException('File not found');
     }
 
-    // Delete from Cloudinary
-    try {
-      await this.cloudinaryService.deleteFile(filePublicId);
-    } catch (error) {
-      console.error('Error deleting file from Cloudinary:', error);
-    }
+    await this.storageService.delete(filePublicId);
 
     // Remove from database
     const collection = this.getCollection();
