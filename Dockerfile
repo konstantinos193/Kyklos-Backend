@@ -10,26 +10,39 @@
 # discards the rest. Twice, once per install stage. That is what filled the
 # deploy host's disk (ENOSPC). pnpm honours os/cpu and fetches only linux-x64.
 #
+# The two settings below are ENV, not CLI flags, on purpose. pnpm records the
+# config an install ran under, and pnpm 11 defaults verify-deps-before-run to
+# "install" - so `pnpm build` re-checks that state and silently reruns a full
+# install if it disagrees. Passing --config.node-linker=hoisted to `pnpm
+# install` alone did exactly that: the build step saw the default linker,
+# declared node_modules stale, and reinstalled all 802 packages over the
+# network. ENV applies to every pnpm invocation in the stage, so they agree.
+#
 # node-linker=hoisted because node_modules is copied between stages below:
 # pnpm's default symlink farm survives COPY --from, but a flat tree removes
 # any doubt and costs nothing in a throwaway image.
-ARG PNPM_FLAGS="--frozen-lockfile --config.node-linker=hoisted"
+#
+# verify-deps-before-run=false because the install is the line above - there is
+# nothing to drift, and the check only adds a network round trip that can fail.
+# (Set as ENV in each stage below - only ARG may precede the first FROM.)
 
 # ---- production dependencies only ----
 FROM node:22-alpine AS prod-deps
-ARG PNPM_FLAGS
+ENV PNPM_CONFIG_NODE_LINKER=hoisted \
+    PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN=false
 RUN corepack enable
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-RUN pnpm install --prod $PNPM_FLAGS && pnpm store prune
+RUN pnpm install --prod --frozen-lockfile && pnpm store prune
 
 # ---- build (needs devDependencies for TypeScript) ----
 FROM node:22-alpine AS build
-ARG PNPM_FLAGS
+ENV PNPM_CONFIG_NODE_LINKER=hoisted \
+    PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN=false
 RUN corepack enable
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-RUN pnpm install $PNPM_FLAGS
+RUN pnpm install --frozen-lockfile
 COPY . .
 RUN pnpm build
 
