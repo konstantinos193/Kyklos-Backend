@@ -5,7 +5,7 @@ This guide covers the Docker-based blue-green deployment setup for the Kyklos ba
 ## Architecture
 
 - **Blue/Green Environments**: Two identical production environments running simultaneously
-- **Nginx Reverse Proxy**: Routes traffic to the active environment
+- **Nginx Reverse Proxy**: Routes traffic to the active environment. Two layers — a containerised nginx that does the blue/green switching, fronted by a host nginx that terminates TLS (see "Install the Host Nginx Vhost")
 - **In-house MongoDB**: Local MongoDB instance (cloned from production Atlas)
 - **In-house Redis**: Local Redis instance for caching
 - **Shared File Storage**: Docker volume for persistent file uploads (PDFs, images, etc.)
@@ -71,6 +71,41 @@ sed -i 's/your-domain.com/api.yourdomain.com/g' nginx/conf.d/kyklos.conf
 
 # Set initial active backend
 sed -i 's/ACTIVE_BACKEND/blue/g' nginx/conf.d/kyklos.conf
+```
+
+### 6. Install the Host Nginx Vhost
+
+There are **two** nginx layers, and only one of them ships with the code:
+
+```
+browser → host nginx (:443, api.kyklosedu.gr) → kyklos-nginx container (:8081) → Nest (:5000)
+```
+
+Everything above configures the **container**. The **host** vhost is a separate
+file on the VPS that no deploy path ever writes — not `deploy.sh`, not
+`deploy-zero-downtime.sh`, not the Actions workflow. It must be installed once
+per host, and re-installed if the server is ever rebuilt:
+
+```bash
+scp nginx/host/api.kyklosedu.gr.conf root@HOST:/etc/nginx/sites-available/kyklos-backend
+ssh root@HOST 'ln -sf /etc/nginx/sites-available/kyklos-backend \
+                      /etc/nginx/sites-enabled/kyklos-backend && \
+               nginx -t && systemctl reload nginx'
+```
+
+Note `client_max_body_size` in particular. Without it nginx applies its 1MB
+default and rejects larger uploads with 413 before the request reaches Nest —
+so the app logs nothing and the admin panel can only report that the image
+failed to upload. Both layers need the limit; the container gets it from
+`nginx/nginx.conf`, the host from this file.
+
+Verify a large body actually reaches the app (401 means it got through the
+proxies to the auth guard; 413 means a proxy is still capping it):
+
+```bash
+head -c 2000000 /dev/urandom > /tmp/big.png
+curl -s -o /dev/null -w '%{http_code}\n' -X POST \
+  https://api.kyklosedu.gr/api/news/upload-image -F 'image=@/tmp/big.png;type=image/png'
 ```
 
 ## Deployment Methods
