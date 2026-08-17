@@ -99,7 +99,18 @@ services:
     networks:
       - kyklos-network
     ports:
-      - "27017:27017"
+      # Loopback, not 0.0.0.0. Published on every interface this was an
+      # unauthenticated MongoDB on the public internet - MONGO_INITDB_ROOT_*
+      # below resolve to empty strings when the env file does not set them, and
+      # the image then starts with auth off. A scanner found it and left a
+      # ransom note in a database called READ_ME_TO_RECOVER_YOUR_DATA. Nothing
+      # was lost, because the application talks to Atlas and this instance held
+      # no data - but it would have taken everything the day it did.
+      #
+      # The backend reaches it as mongodb:27017 over kyklos-network and never
+      # needed a published port at all; loopback keeps mongosh working from the
+      # host without offering the database to anyone else.
+      - "127.0.0.1:27017:27017"
     healthcheck:
       test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
       interval: 30s
@@ -119,7 +130,9 @@ services:
     networks:
       - kyklos-network
     ports:
-      - "6379:6379"
+      # Loopback. Redis has a password, but an internet-facing cache is still a
+      # brute-force target and one more thing that has to never be misconfigured.
+      - "127.0.0.1:6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
       interval: 30s
