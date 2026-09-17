@@ -61,7 +61,6 @@ docker run -d \
     -e PORT=5000 \
     -e MONGODB_URI="mongodb://${MONGO_USERNAME}:${MONGO_PASSWORD}@mongodb:27017/kyklos_db?authSource=admin" \
     -e REDIS_URL="redis://:${REDIS_PASSWORD}@redis:6379" \
-    -e UPSTASH_REDIS_REST_URL="redis://:${REDIS_PASSWORD}@redis:6379" \
     --label deployment.color="${TARGET_COLOR}" \
     --restart unless-stopped \
     "${IMAGE_NAME}:${IMAGE_TAG}"

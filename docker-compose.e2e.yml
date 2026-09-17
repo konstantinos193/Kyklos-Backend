@@ -30,19 +30,6 @@ services:
       timeout: 5s
       retries: 20
 
-  # Upstash-compatible REST facade over Redis. CacheService talks REST over
-  # axios, so a plain redis:// URL can never work.
-  srh:
-    image: hiett/serverless-redis-http:latest
-    container_name: kyklos-e2e-srh
-    environment:
-      SRH_MODE: env
-      SRH_TOKEN: e2e_srh_token
-      SRH_CONNECTION_STRING: redis://:e2eredispass@redis:6379
-    depends_on:
-      redis: {condition: service_healthy}
-    networks: [kyklos-e2e]
-
   mailpit:
     image: axllent/mailpit:latest
     container_name: kyklos-e2e-mailpit
@@ -61,7 +48,7 @@ services:
     env_file: [.env.e2e]
     depends_on:
       mongodb: {condition: service_healthy}
-      srh: {condition: service_started}
+      redis: {condition: service_healthy}
       mailpit: {condition: service_started}
     ports:
       - "7432:5000"

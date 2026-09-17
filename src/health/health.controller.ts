@@ -36,8 +36,12 @@ export class HealthController {
 
     const cacheCheck = (async () => {
       try {
-        await this.cacheService.get('health:check');
-        return { ok: true };
+        // ping() is false when REDIS_URL is unset or Redis is unreachable.
+        // A get() cannot tell the two apart from a cache miss - it swallows
+        // errors by design - which is how a cache that never worked passed
+        // this check for months.
+        const ok = await this.cacheService.ping();
+        return ok ? { ok: true } : { ok: false, details: 'redis not connected' };
       } catch (e: any) {
         return { ok: false, details: e.message };
       }

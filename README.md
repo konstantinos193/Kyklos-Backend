@@ -163,7 +163,7 @@ cp env.example .env
 - `FRONTEND_URL` - Frontend URL for CORS (where the frontend lives)
 - `PUBLIC_ASSET_BASE_URL` - Origin uploaded files are served from (this API's own host)
 - `EMAIL_*` - Email configuration for newsletter and contact forms (digital post office)
-- `UPSTASH_REDIS_*` - Redis cache configuration (short-term memory)
+- `REDIS_URL` - Redis connection string, e.g. `redis://:password@redis:6379` (short-term memory; the API runs uncached without it)
 
 ### Optional Variables (Nice to Have)
 - `NODE_ENV` - Environment mode (development/production)
