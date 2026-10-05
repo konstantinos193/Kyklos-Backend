@@ -48,8 +48,8 @@ async function bootstrap() {
   // The archive page links straight at files on api.kyklosedu.gr, so crawlers
   // walked onto the host and Search Console started reporting the API root as
   // "Crawled - currently not indexed". This API is machinery, not content:
-  // everything outside /public/ is marked noindex so Google drops it, while the
-  // archive PDFs under /public/ stay eligible.
+  // everything outside /public/ is marked noindex so Google drops it, and so
+  // are the archive PDFs (see below); uploaded images stay eligible.
   //
   // Crawling is deliberately left open - blocking the host in robots.txt would
   // stop Google fetching these URLs at all, and a URL that is never fetched can
@@ -60,7 +60,13 @@ async function bootstrap() {
       return;
     }
 
-    if (!req.path.startsWith('/public/')) {
+    // The exam PDFs are noindexed too. Each one has an HTML page on
+    // kyklosedu.gr (/panhellenic/archive/<year>/<subject>) that links to it and
+    // adds what the bare Ministry PDF cannot - the school, the teachers, the
+    // other years. That page is the search result we want; a PDF on the API
+    // host lands the reader on a file with no way back to the site. Uploaded
+    // images under /public/uploads stay eligible for image search.
+    if (!req.path.startsWith('/public/') || req.path.startsWith('/public/panhellenic-archive/')) {
       res.setHeader('X-Robots-Tag', 'noindex');
     }
 

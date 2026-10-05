@@ -126,15 +126,13 @@ function verifyParse(source, years) {
 
 function buildDocuments(year, now) {
   const { startYear, students } = year;
-  const endYear = startYear + 1;
-  const slug = `epityxontes-etos-${startYear}-${endYear}`;
+  const slug = `epityxontes-etos-${startYear}`;
 
   return students.map((student, index) => ({
     lastName: student.lastName,
     firstName: student.firstName,
     schoolTitle: student.schoolTitle,
     startYear,
-    endYear,
     slug,
     // Διατηρεί τη σειρά του αρχικού αρχείου - οι public σελίδες δεν αλλάζουν όψη.
     order: index,

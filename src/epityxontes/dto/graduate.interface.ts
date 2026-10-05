@@ -1,7 +1,7 @@
 import { ObjectId } from 'mongodb';
 
 /**
- * Ένας επιτυχών σε σχολή, για ένα σχολικό έτος.
+ * Ένας επιτυχών σε σχολή, για μία χρονιά Πανελλαδικών.
  *
  * Ονοματολογία: το domain λέγεται `epityxontes` παντού (route, collection,
  * public URL) γιατί έτσι το λέει ο πελάτης και έτσι είναι ήδη τα links του site.
@@ -13,9 +13,13 @@ export interface Graduate {
   lastName: string;
   firstName: string;
   schoolTitle: string;
-  /** Έτος έναρξης σχολικής χρονιάς: το 2025 σημαίνει «2025-2026». */
+  /**
+   * Η χρονιά των επιτυχόντων, ένα σκέτο έτος: 2025 σημαίνει «Επιτυχόντες 2025».
+   * Το site έγραφε «2025-2026» και ο πελάτης το διόρθωσε (10/2026) - το δεύτερο
+   * έτος ήταν λάθος. Το πεδίο κράτησε το όνομα `startYear` γιατί είναι στη βάση
+   * και στο API· η μετονομασία δεν άξιζε το ρίσκο.
+   */
   startYear: number;
-  endYear: number;
   /** Παράγωγο του startYear - το route του public site. */
   slug: string;
   /** Σειρά εμφάνισης μέσα στο έτος. */
@@ -31,16 +35,15 @@ export interface Graduate {
 /** Μία χρονιά όπως εμφανίζεται στη λίστα ετών. */
 export interface GraduateYear {
   startYear: number;
-  endYear: number;
   slug: string;
   label: string;
   total: number;
 }
 
 export function toSlug(startYear: number): string {
-  return `epityxontes-etos-${startYear}-${startYear + 1}`;
+  return `epityxontes-etos-${startYear}`;
 }
 
 export function toLabel(startYear: number): string {
-  return `Επιτυχόντες Έτος ${startYear}-${startYear + 1}`;
+  return `Επιτυχόντες Έτος ${startYear}`;
 }

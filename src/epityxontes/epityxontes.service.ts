@@ -65,7 +65,6 @@ export class EpityxontesService {
 
     const years = grouped.map(({ _id: startYear, total }) => ({
       startYear,
-      endYear: startYear + 1,
       slug: toSlug(startYear),
       label: toLabel(startYear),
       total,
@@ -98,13 +97,17 @@ export class EpityxontesService {
     return this.findByYear(startYear);
   }
 
+  /**
+   * Δέχεται το `epityxontes-etos-2025` και το παλιό `epityxontes-etos-2025-2026`,
+   * που κυκλοφορεί ακόμα σε links και στο ευρετήριο της Google. Στο παλιό το
+   * δεύτερο έτος πρέπει να είναι το επόμενο, αλλιώς είναι χειρόγραφο.
+   */
   private parseSlug(slug: string): number | null {
-    const match = /^epityxontes-etos-(\d{4})-(\d{4})$/.exec(slug);
+    const match = /^epityxontes-etos-(\d{4})(?:-(\d{4}))?$/.exec(slug);
     if (!match) return null;
 
     const startYear = parseInt(match[1], 10);
-    // Το slug κουβαλάει και τα δύο έτη· αν δεν είναι διαδοχικά είναι χειρόγραφο.
-    if (parseInt(match[2], 10) !== startYear + 1) return null;
+    if (match[2] && parseInt(match[2], 10) !== startYear + 1) return null;
 
     return startYear;
   }
@@ -152,7 +155,6 @@ export class EpityxontesService {
     const document = {
       ...normalizeNames(dto),
       startYear: dto.startYear,
-      endYear: dto.startYear + 1,
       slug: toSlug(dto.startYear),
       order: await this.nextOrder(dto.startYear),
       isActive: true,
@@ -180,7 +182,6 @@ export class EpityxontesService {
     // τέλος της χρονιάς-προορισμού - αλλιώς θα μοιραζόταν `order` με άλλον.
     if (dto.startYear !== undefined) {
       changes.startYear = dto.startYear;
-      changes.endYear = dto.startYear + 1;
       changes.slug = toSlug(dto.startYear);
       changes.order = await this.nextOrder(dto.startYear);
     }
@@ -253,7 +254,6 @@ export class EpityxontesService {
       const documents = entries.map((entry, index) => ({
         ...normalizeNames(entry),
         startYear,
-        endYear: startYear + 1,
         slug: toSlug(startYear),
         order: firstOrder + index,
         isActive: true,

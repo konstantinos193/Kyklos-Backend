@@ -1,6 +1,8 @@
 {
   "compilerOptions": {
-    "module": "node16",
+    // nodenext (not node16) lets these CommonJS files import the ESM-only @nestjs/* 12
+    // packages; Node runs that natively via require(esm), which needs Node >= 22.12.
+    "module": "nodenext",
     "declaration": true,
     "removeComments": true,
     "emitDecoratorMetadata": true,
@@ -24,7 +26,7 @@
     "noFallthroughCasesInSwitch": false,
     "esModuleInterop": true,
     "resolveJsonModule": true,
-    "moduleResolution": "node16"
+    "moduleResolution": "nodenext"
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
